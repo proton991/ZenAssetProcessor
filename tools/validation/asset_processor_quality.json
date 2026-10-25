@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "purpose": "Versioned comparison requirements for the ZenAssetProcessor extraction and cooking profiles",
+  "reference_profile": {
+    "status": "initial parity contract based on existing SceneAssetIO exact round-trip tests",
+    "required_semantics": [
+      "nodes, roots, hierarchy, affine transforms, visibility and instancing",
+      "mesh topology, primitive material references, vertex/index streams and bounds",
+      "all UV/color/influence/morph/custom-attribute streams and their domains",
+      "materials, samplers, color spaces, texture transforms and variants",
+      "decoded pixels, authored mip chains and HDR environment data",
+      "skins, inverse-bind matrices, clips, typed targets and interpolation",
+      "cameras, punctual lights, physical units and diagnostics"
+    ],
+    "integer_enum_reference_and_count_mismatches": 0,
+    "float_absolute_error": 0.0,
+    "decoded_pixel_byte_mismatches": 0,
+    "authored_mip_byte_mismatches": 0,
+    "pose_sampling": ["first key", "every authored key", "midpoint of every key interval", "last key"],
+    "pose_position_normal_tangent_absolute_error": 0.0,
+    "bounds_must_contain_evaluated_geometry": true,
+    "rendered_same_device_fixed_inputs_max_channel_error_8bit": 0,
+    "render_comparison_note": "Use identical renderer, camera, exposure, lights, environment, fixed animation time and deterministic accumulation. Investigate nondeterminism before changing an exact threshold."
+  },
+  "existing_fbx_bake_settings": {
+    "source": "ZenCore/Include/AssetLib/SceneData.h: AnimationBakeSettings",
+    "sample_rate_hz": 60,
+    "translation_tolerance": 0.00001,
+    "rotation_tolerance": 0.0001,
+    "scale_tolerance": 0.00001,
+    "value_tolerance": 0.0001,
+    "max_subdivisions": 10,
+    "max_values": 67108864,
+    "note": "Preserve these existing importer settings. They do not license new cooking loss in the reference profile."
+  },
+  "desktop_profile": {
+    "status": "provisional thresholds; must be evaluated against M4/M5 corpus evidence before enabling lossy passes by default",
+    "semantic_rules": "All reference semantic checks remain required except explicitly enabled lossy payloads and declared remapping. Compare values after resolving mappings.",
+    "quantization": {
+      "position_max_error_fraction_of_mesh_aabb_diagonal": 0.00001,
+      "position_absolute_error_floor_meters": 0.000001,
+      "normal_max_angular_error_degrees": 1.0,
+      "tangent_max_angular_error_degrees": 1.0,
+      "tangent_handedness_mismatches": 0,
+      "uv_max_error_texels_at_largest_bound_texture": 0.25,
+      "posed_position_max_error_fraction_of_scene_aabb_diagonal": 0.00001,
+      "joint_id_or_influence_count_mismatches": 0,
+      "unapproved_topology_or_primitive_order_changes": 0,
+      "note": "A pose or morph-specific bound failure rejects that optimization. These settings do not enable simplification or LOD generation."
+    },
+    "texture_encoding": {
+      "linear_rgb_psnr_min_db": 40.0,
+      "linear_rgb_rmse_max_unit_range": 0.01,
+      "normal_rms_angular_error_max_degrees": 1.0,
+      "normal_max_angular_error_degrees": 5.0,
+      "normal_filter_sample_phases": [0.0, 0.25, 0.5, 0.75],
+      "normal_mip_blend_fractions": [0.25, 0.5, 0.75],
+      "normal_filtering_note": "Filter stored channels before normal reconstruction using authored wrap behavior. Production qualification bounds continuous bilinear UV within each image level and the complete shared UV-phase/adjacent-mip blend domain jointly. Each domain must satisfy the unchanged RMS and maximum angle limits. The declared fixed grids remain independent audit samples, not proof of continuity. Anisotropic filtering, device precision and rendered quality remain separate requirements.",
+      "normal_joint_qualification": {
+        "domain": "continuous shared U/V phases and adjacent-mip blend fractions; same normalized coordinates at both levels",
+        "linear_minification": "partition each fine texel cell at coarse tap boundaries; trilinear tensor Bernstein bounds",
+        "nearest_minification": "correlated fine/coarse tap states including exact cuts/endpoints; affine LOD bounds",
+        "bc5_bound": "corner-chord angular bound plus positive-Z range and Hessian interpolation bounds",
+        "aggregation": "RMS of one per-cell angular upper bound over every joint box, with a separate maximum-angle bound",
+        "maximum_subdivision_depth": 12,
+        "maximum_box_scans_per_adjacent_pair": 127,
+        "undefined_normal_length_threshold": 1e-12,
+        "uncertified_action": "retain the complete original image and every authored mip",
+        "diagnostics": "common-phase observed errors, certified leaf upper bounds and the complete-domain flag are distinct"
+      },
+      "normal_uv_qualification": {
+        "domain": "continuous bilinear UV phase rectangles within individual mip levels",
+        "bc7_bound": "tensor Bernstein bounds on bilinear direction cross and dot products",
+        "bc5_bound": "bilinear corner-chord angular bound plus positive-Z range and Hessian interpolation bounds",
+        "aggregation": "RMS of per-texel angular upper bounds over every phase rectangle, with a separate maximum-angle bound",
+        "maximum_subdivision_depth": 12,
+        "maximum_rectangle_scans_per_mip": 127,
+        "undefined_normal_length_threshold": 1e-12,
+        "uncertified_action": "retain the complete original image and every authored mip",
+        "diagnostics": "original quarter-phase metrics, adaptive observations and certified leaf bounds are distinct",
+        "joint_uv_lod_certificate": false
+      },
+      "scalar_channel_max_absolute_error_unit_range": 0.03137254901960784,
+      "alpha_coverage_max_absolute_fraction_error_per_mip": 0.01,
+      "hdr_relative_rmse_max": 0.02,
+      "non_finite_values": 0,
+      "note": "Measure each image and each mip separately in the correct color space, with HDR range and alpha-test cutoff recorded; corpus averages cannot hide failures. Unsuitable images retain uncompressed storage."
+    },
+    "atlas": {
+      "eligible_binding_render_max_channel_error_8bit_before_lossy_encoding": 1,
+      "rejected_binding_semantic_changes": 0,
+      "mip_bleed_or_wrapping_failures": 0,
+      "required_cases": ["minification", "magnification", "tile edges", "smallest mip", "anisotropic sampling", "UV transform", "unsupported wrap", "animated UV exclusion"]
+    }
+  },
+  "required_measurements": {
+    "timing_seconds": ["source parsing", "image decoding", "processing", "encoding", "package publication", "package read", "decompression", "runtime adaptation", "GPU preparation/upload", "scene publication"],
+    "memory_bytes": ["peak CPU working set", "peak CPU private commit", "decoded chunk budget", "GPU geometry allocation", "GPU texture allocation", "staging allocation"],
+    "sizes_bytes": ["all source dependencies", "package", "each raw chunk", "each encoded chunk"],
+    "identity": ["source and dependency hashes", "processor build and dependency pins", "profile and encoder options", "toolchain", "OS", "CPU", "GPU and driver", "thread/job limits", "OS-cache conditions", "render settings"],
+    "repetitions": {"cold_asset_cache_runs_min": 3, "warm_asset_cache_runs_min": 5},
+    "report_statistics": ["each sample", "median", "minimum", "maximum"],
+    "note": "Keep preliminary samples separate from the fresh M0 three cold/fifteen warm measurements recorded in Doc/ZenAssetProcessorM0Verification.md. Missing per-resource GPU allocations and GPU upload execution metrics remain unverified."
+  }
+}

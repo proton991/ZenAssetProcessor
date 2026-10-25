@@ -1,0 +1,6 @@
+target_sources(ZenAssetReader PRIVATE src/Reader/Image.cpp)
+if(ZENASSET_BUILD_TESTING)
+    add_executable(ZenAssetImagePreviewTests tests/ImagePreviewTests.cpp)
+    target_link_libraries(ZenAssetImagePreviewTests PRIVATE ZenAssetReader)
+    add_test(NAME ZenAssetImagePreviewTests COMMAND ZenAssetImagePreviewTests)
+endif()

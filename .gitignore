@@ -1,0 +1,7 @@
+/build/
+/out/
+/CMakeUserPresets.json
+/.cache/
+/scene-io-test-output-*/
+__pycache__/
+*.pyc

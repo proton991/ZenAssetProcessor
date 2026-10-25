@@ -1,0 +1,30 @@
+option(ZENASSET_BUILD_CLI "Build the zenassetc asset compiler" ${ZENASSET_BUILD_PROCESSOR})
+if(ZENASSET_BUILD_CLI)
+    if(NOT ZENASSET_BUILD_PROCESSOR)
+        message(FATAL_ERROR "ZENASSET_BUILD_CLI requires ZENASSET_BUILD_PROCESSOR")
+    endif()
+    add_executable(zenassetc tools/zenassetc/main.cpp)
+    add_executable(ZenAsset::Compiler ALIAS zenassetc)
+    target_link_libraries(zenassetc PRIVATE ZenAsset::Processor ZenAsset::Reader)
+    set_target_properties(zenassetc PROPERTIES CXX_EXTENSIONS OFF EXPORT_NAME Compiler)
+    if(MSVC)
+        target_compile_options(zenassetc PRIVATE /W4 /permissive- /utf-8)
+    endif()
+    install(TARGETS zenassetc EXPORT ZenAssetTargets RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+    if(ZENASSET_BUILD_TESTING)
+        find_package(Python3 COMPONENTS Interpreter QUIET)
+        if(Python3_Interpreter_FOUND)
+            add_test(NAME ZenAssetCommandLine COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/CliTests.py $<TARGET_FILE:zenassetc>)
+            add_test(NAME ZenAssetBuildCommandLine COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/BuildCliTests.py $<TARGET_FILE:zenassetc>)
+            add_test(NAME ZenAssetArrayCommandLine COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/ArrayCliTests.py $<TARGET_FILE:zenassetc>)
+            add_test(NAME ZenAssetSpatialCommandLine COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/SpatialCliTests.py $<TARGET_FILE:zenassetc>)
+        endif()
+    endif()
+endif()
+include(${CMAKE_CURRENT_LIST_DIR}/BuildAssets.cmake)
+install(FILES ${CMAKE_CURRENT_LIST_DIR}/BuildAssets.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ZenAsset)

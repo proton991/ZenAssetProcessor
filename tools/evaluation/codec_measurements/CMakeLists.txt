@@ -1,0 +1,13 @@
+cmake_minimum_required(VERSION 3.23)
+project(ZenAssetCodecMeasurements LANGUAGES CXX)
+find_package(ZenAsset CONFIG REQUIRED COMPONENTS Processor Reader)
+add_executable(codec_measurements main.cpp)
+target_compile_features(codec_measurements PRIVATE cxx_std_20)
+target_include_directories(codec_measurements PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../../../tests")
+target_link_libraries(codec_measurements PRIVATE ZenAsset::Processor ZenAsset::Reader)
+if(MSVC)
+    target_compile_options(codec_measurements PRIVATE /W4 /permissive- /utf-8)
+else()
+    target_compile_options(codec_measurements PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+

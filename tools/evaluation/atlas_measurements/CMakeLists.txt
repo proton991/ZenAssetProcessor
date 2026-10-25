@@ -1,0 +1,13 @@
+cmake_minimum_required(VERSION 3.23)
+project(ZenAssetAtlasMeasurements LANGUAGES CXX)
+find_package(ZenAsset CONFIG REQUIRED COMPONENTS Processor Reader)
+add_executable(atlas_measurements main.cpp)
+target_compile_features(atlas_measurements PRIVATE cxx_std_20)
+target_include_directories(atlas_measurements PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../../../tests")
+target_link_libraries(atlas_measurements PRIVATE ZenAsset::Processor ZenAsset::Reader)
+if(MSVC)
+    target_compile_options(atlas_measurements PRIVATE /W4 /permissive- /utf-8)
+else()
+    target_compile_options(atlas_measurements PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+

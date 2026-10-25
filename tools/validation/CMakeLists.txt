@@ -1,0 +1,4 @@
+add_executable(ZenAssetRoundtripAudit asset_processor_roundtrip.cpp)
+target_link_libraries(ZenAssetRoundtripAudit PRIVATE ZenAsset::Processor ZenAsset::Reader)
+add_executable(ZenAssetHdrFixtures asset_processor_hdr_fixtures.cpp)
+target_link_libraries(ZenAssetHdrFixtures PRIVATE ZenAsset::Processor)

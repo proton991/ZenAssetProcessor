@@ -1,0 +1,8 @@
+target_sources(ZenAssetProcessor PRIVATE src/Processing/HdrCube.cpp src/Processing/EnvironmentProcessing.cpp)
+target_link_libraries(ZenAssetProcessor PRIVATE ZenAssetBlockEncoder ZenAssetBlockDecoder)
+if(ZENASSET_BUILD_TESTING)
+    add_executable(ZenAssetHdrCubeTests tests/HdrCubeTests.cpp)
+    target_include_directories(ZenAssetHdrCubeTests PRIVATE src)
+    target_link_libraries(ZenAssetHdrCubeTests PRIVATE ZenAssetProcessor)
+    add_test(NAME ZenAssetHdrCubeTests COMMAND ZenAssetHdrCubeTests)
+endif()

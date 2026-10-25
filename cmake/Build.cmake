@@ -1,0 +1,7 @@
+target_sources(ZenAssetProcessor PRIVATE src/Processor/Build.cpp src/Processor/BuildManifest.cpp)
+if(ZENASSET_BUILD_TESTING)
+    add_executable(ZenAssetBuildTests tests/BuildTests.cpp)
+    target_link_libraries(ZenAssetBuildTests PRIVATE ZenAssetProcessor)
+    target_include_directories(ZenAssetBuildTests PRIVATE src)
+    add_test(NAME ZenAssetBuildTests COMMAND ZenAssetBuildTests)
+endif()

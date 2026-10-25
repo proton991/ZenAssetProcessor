@@ -1,0 +1,12 @@
+@PACKAGE_INIT@
+@ZENASSET_PROCESSOR_CONFIG_DEPENDENCIES@
+include("${CMAKE_CURRENT_LIST_DIR}/ZenAssetTargets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/BuildAssets.cmake")
+foreach(component IN LISTS ZenAsset_FIND_COMPONENTS)
+    if(TARGET ZenAsset::${component})
+        set(ZenAsset_${component}_FOUND TRUE)
+    else()
+        set(ZenAsset_${component}_FOUND FALSE)
+    endif()
+endforeach()
+check_required_components(ZenAsset)
