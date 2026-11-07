@@ -3,6 +3,10 @@
 `ReadSceneDeferredImages` reads and validates the complete native resource graph,
 but retains only image descriptors and an open package handle for image data.
 It supports existing packages; no new wire schema or recook is required.
+For static scenes, redundant two-set texture-coordinate arrays are released
+after validation when every component is bit-identical to the vertex UV fields.
+Sparse sets, differing values, signed-zero differences, skins and morphs retain
+their authored arrays. The ordinary reader preserves canonical array shape.
 
 Call `ResolveImagePixels` before accessing a deferred image's bytes. The returned
 immutable lease contains the complete original image, including authored mips

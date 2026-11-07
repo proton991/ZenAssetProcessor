@@ -73,6 +73,33 @@ private:
     std::shared_ptr<const SceneReadLimits> m_limits;
 };
 
+void CompactRuntimeCoordinates(Scene& scene, const Cancellation* cancellation)
+{
+    bool redundant = !scene.vertexTexCoords.empty() && scene.vertexTexCoords.size() == scene.vertices.size()
+                  && scene.vertexTexCoordSets.size() <= 2 && scene.morphPrimitives.empty() && scene.skins.empty();
+    for (size_t index = 0; redundant && index < scene.vertices.size(); ++index)
+    {
+        if ((index & 4095u) == 0 && cancellation != nullptr && cancellation->IsCancelled())
+        {
+            redundant = false;
+            break;
+        }
+        const VertexTextureCoordinates& coordinates = scene.vertexTexCoords[index];
+        const Vertex&                   vertex      = scene.vertices[index];
+        redundant                                   = coordinates.size() == 2;
+        for (size_t slot = 0; redundant && slot < 2; ++slot)
+        {
+            const Vec2& uv = slot == 0 ? vertex.uv0 : vertex.uv1;
+            redundant      = std::bit_cast<uint32_t>(coordinates[slot].x) == std::bit_cast<uint32_t>(uv.x)
+                          && std::bit_cast<uint32_t>(coordinates[slot].y) == std::bit_cast<uint32_t>(uv.y);
+        }
+    }
+    if (redundant)
+    {
+        std::vector<VertexTextureCoordinates>().swap(scene.vertexTexCoords);
+    }
+}
+
 class SceneDecoder
 {
 public:
@@ -353,6 +380,7 @@ SceneReadResult ReadSceneImpl(const Package&                 package,
                               std::shared_ptr<const Package> deferredPackage)
 {
     SceneReadResult result;
+    const bool      runtimeStorage  = bool(deferredPackage);
     uint64_t        allocationBytes = 0;
     result.status                   = ValidateReadLimits(package, limits, sizeof(Scene), allocationBytes);
     if (cancellation != nullptr && cancellation->IsCancelled())
@@ -381,8 +409,19 @@ SceneReadResult ReadSceneImpl(const Package&                 package,
         }
         if (result.status.Succeeded())
         {
-            result.scene    = std::move(scene);
-            result.metadata = decoder.TakeMetadata();
+            if (runtimeStorage)
+            {
+                CompactRuntimeCoordinates(*scene, cancellation);
+            }
+            if (cancellation != nullptr && cancellation->IsCancelled())
+            {
+                result.status = {StatusCode::Cancelled, "Scene read cancelled"};
+            }
+            else
+            {
+                result.scene    = std::move(scene);
+                result.metadata = decoder.TakeMetadata();
+            }
         }
     }
     return result;

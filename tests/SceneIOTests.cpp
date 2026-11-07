@@ -929,6 +929,41 @@ bool TestMipOwnershipSchema()
     return valid;
 }
 
+bool TestRuntimeCoordinates(const std::filesystem::path& directory)
+{
+    const std::string path = (directory / "runtime-coordinates.zenasset").string();
+    Scene             source;
+    source.vertices.resize(3);
+    source.vertices[1].pos    = Vec4(1, 0, 0, 1);
+    source.vertices[2].pos    = Vec4(0, 1, 0, 1);
+    source.indices            = {0, 1, 2};
+    source.vertexTexCoordSets = {0, 1};
+    source.vertexTexCoords.resize(3, {Vec2(0), Vec2(0)});
+    source.meshes.resize(1);
+    MeshPrimitiveAsset primitive;
+    primitive.vertexCount = primitive.indexCount = 3;
+    primitive.bounds                             = Bounds(Vec3(0), Vec3(1, 1, 0));
+    source.meshes[0].primitives.push_back(primitive);
+    source.nodes.resize(1);
+    source.nodes[0].mesh  = MeshId{0};
+    source.roots          = {NodeId{0}};
+    bool            valid = Check(WriteScene(path, source).Succeeded(), "Write redundant coordinate fixture");
+    SceneReadResult read  = ReadSceneDeferredImages(path);
+    valid &= Check(read.scene && read.scene->vertexTexCoords.empty(), "Runtime reader releases exact redundant UV rows");
+    read   = ReadScene(path);
+    valid &= Check(read.scene && read.scene->vertexTexCoords.size() == 3, "Ordinary reader preserves UV array shape");
+    source.vertexTexCoords[0][0].x  = -0.0f;
+    valid                          &= Check(WriteScene(path, source).Succeeded(), "Write signed zero coordinate fixture");
+    read                            = ReadSceneDeferredImages(path);
+    valid &= Check(read.scene && read.scene->vertexTexCoords.size() == 3, "Runtime compaction preserves differing UV bits");
+    source.vertexTexCoords[0][0].x = 0.0f;
+    source.vertexTexCoordSets.push_back(9);
+    valid &= Check(WriteScene(path, source).Succeeded(), "Write sparse coordinate fixture");
+    read   = ReadSceneDeferredImages(path);
+    valid &= Check(read.scene && read.scene->vertexTexCoords.size() == 3, "Runtime compaction preserves sparse UV layouts");
+    return valid;
+}
+
 bool TestDeferredImages(const std::filesystem::path& directory)
 {
     const std::string path    = (directory / "deferred.zenasset").string();
@@ -1006,6 +1041,7 @@ int main(int argc, char** argv)
     valid      &= TestRoundTrip(directory);
     valid      &= TestMipOwnershipSchema();
     valid      &= TestDeferredImages(directory);
+    valid      &= TestRuntimeCoordinates(directory);
     valid      &= TestBlockModeValidation(directory);
     valid      &= TestTextureInterpretation(directory);
     valid      &= TestEnvironmentEncoding(directory);

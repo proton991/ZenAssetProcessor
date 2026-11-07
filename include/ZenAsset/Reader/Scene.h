@@ -38,6 +38,8 @@ SceneReadResult ReadScene(const Package&         package,
 // Validates the same graph and image payloads as ReadScene, but retains image
 // descriptors and open package handles. Pixel consumers must ResolveImagePixels.
 // Geometry stays resident. No schema change or original source files are required.
+// Static two-set UV arrays are omitted only when bit-identical to uv0/uv1 in
+// the vertices. Ordinary ReadScene preserves the original canonical array shape.
 SceneReadResult ReadSceneDeferredImages(const std::string&     path,
                                         const SceneReadLimits& limits       = {},
                                         const Cancellation*    cancellation = nullptr);
