@@ -15,6 +15,7 @@
 #include <cmath>
 #include <filesystem>
 #include <iostream>
+#include <mutex>
 #include <string>
 #include <vector>
 #if defined(_WIN32)
@@ -548,12 +549,20 @@ void PrintDiagnostics(const std::vector<Diagnostic>& diagnostics)
     }
 }
 
+void PrintBuildProgress(void* user, uint32_t job, SceneBuildStage stage)
+{
+    const char* names[] = {"waiting", "preflight", "importing", "cooking", "writing", "publishing", "reused", "complete"};
+    const std::lock_guard<std::mutex> lock(*static_cast<std::mutex*>(user));
+    std::cerr << "zenasset-progress-v1 " << job << ' ' << names[static_cast<uint32_t>(stage)] << '\n' << std::flush;
+}
+
 Status Build(const std::vector<std::string>& values, const Cancellation& cancellation)
 {
     Status                   status;
     SceneBuildOptions        options;
     std::string              input;
     std::vector<std::string> seen;
+    std::mutex               progressMutex;
     for (size_t index = 2; status.Succeeded() && index < values.size(); ++index)
     {
         const std::string& option = values[index];
@@ -581,7 +590,7 @@ Status Build(const std::vector<std::string>& values, const Cancellation& cancell
             {
                 options.outputDirectory = value;
             }
-            else if (option == "--force" || option == "--assembly-only")
+            else if (option == "--force" || option == "--assembly-only" || option == "--progress")
             {
                 if (value == "on" || value == "off")
                 {
@@ -589,9 +598,13 @@ Status Build(const std::vector<std::string>& values, const Cancellation& cancell
                     {
                         options.force = value == "on";
                     }
-                    else
+                    else if (option == "--assembly-only")
                     {
                         options.assemblyOnly = value == "on";
+                    }
+                    else if (value == "on")
+                    {
+                        options.callbacks = {&progressMutex, &PrintBuildProgress};
                     }
                 }
                 else
@@ -838,7 +851,7 @@ void Help()
            "zenassetc clean DIRECTORY [--dry-run on|off] (default on)\n"
            "zenassetc build MANIFEST [--output-dir DIR] [--jobs 1..64] [--force off|on]\n"
            "               [--memory-budget BYTES] [--job-memory BYTES] [--manifest-budget BYTES]\n"
-           "               [--import-workers 1..64]\n"
+           "               [--import-workers 1..64] [--progress on|off]\n"
            "               [--assembly-only off|on] (version 2; source freshness is not checked)\n"
            "Successful commands print JSON to stdout; diagnostics go to stderr. Ctrl+C cancels cooperatively.\n";
 }

@@ -26,12 +26,21 @@ def main():
         manifest.write_text(json.dumps(document), encoding="utf-8")
         arguments = ("build", manifest, "--output-dir", directory / "override", "--jobs", 2,
                      "--memory-budget", 256 * 1024**2, "--job-memory", 128 * 1024**2)
-        first = json.loads(invoke(executable, *arguments).stdout)
+        progress_run = invoke(executable, *arguments, "--progress", "on")
+        events = [line.split() for line in progress_run.stderr.splitlines() if line.startswith("zenasset-progress-v1 ")]
+        assert events and all(len(event) == 3 for event in events), progress_run.stderr
+        for job in ("0", "1"):
+            stages = [event[2] for event in events if event[1] == job]
+            assert stages == ["preflight", "importing", "cooking", "writing", "publishing", "complete"], stages
+        first = json.loads(progress_run.stdout)
         assert [job["disposition"] for job in first["jobs"]] == ["built", "built"]
         assert all(job["published"] for job in first["jobs"])
         assert not (directory / "default").exists()
         second = json.loads(invoke(executable, *arguments).stdout)
         assert [job["disposition"] for job in second["jobs"]] == ["reused", "reused"]
+        reused = invoke(executable, *arguments, "--progress", "on")
+        assert "reused" in reused.stderr
+        assert "zenasset-progress-v1" not in invoke(executable, *arguments, "--progress", "off").stderr
         forced = json.loads(invoke(executable, *arguments, "--force", "on").stdout)
         assert all(job["published"] for job in forced["jobs"])
         material = directory / "material.mtl"
@@ -47,6 +56,7 @@ def main():
             invoke(executable, "validate", path)
         invoke(executable, *arguments, "--unknown", "x", expected=2)
         invoke(executable, *arguments, "--force", "maybe", expected=2)
+        invoke(executable, *arguments, "--progress", "maybe", expected=2)
         invoke(executable, *arguments, "--jobs", 1, expected=2)
         invoke(executable, "build", manifest, "--memory-budget", 1, expected=3)
         for malformed in ([], None, {**document, "jobs": 1}, {**document, "extra": True},

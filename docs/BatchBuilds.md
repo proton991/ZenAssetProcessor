@@ -51,6 +51,15 @@ JSON results stay in request order and report status, `built`/`reused`/`not_buil
 cache identity, publication state and omitted-diagnostic count. The overall error
 is the first failed job in request order after workers drain.
 
+`--progress on` additionally emits flushed, serialized stderr lines in the form
+`zenasset-progress-v1 JOB STAGE`. `JOB` is a zero-based request index, or
+`4294967295` for a batch-wide event. Stages are `waiting`, `preflight`, `importing`,
+`cooking`, `writing`, `publishing`, `reused`, and `complete`. These report actual
+milestones, not elapsed-time percentages. `complete` means that job stopped;
+only the final result/exit status establishes success. Assembly publication is a
+separate batch-wide event. Concurrent batch jobs can interleave events. Progress
+is off by default and never changes the final stdout JSON format.
+
 ## Freshness and publication
 
 Identity covers every source/processing/compression setting (including disabled
