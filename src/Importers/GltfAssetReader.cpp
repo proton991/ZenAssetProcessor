@@ -652,10 +652,13 @@ GltfAssetReader::GltfAssetReader(const BackendContext& context) :
         | fastgltf::Extensions::EXT_texture_webp | fastgltf::Extensions::EXT_mesh_gpu_instancing
         | fastgltf::Extensions::KHR_materials_variants};
 
-    m_gltfParser = fastgltf::Parser(supportedExtensions);
+    m_gltfParser  = fastgltf::Parser(supportedExtensions);
 
-    m_loadOptions =
-        fastgltf::Options::LoadExternalBuffers | fastgltf::Options::LoadExternalImages | fastgltf::Options::GenerateMeshIndices;
+    m_loadOptions = fastgltf::Options::LoadExternalBuffers | fastgltf::Options::GenerateMeshIndices;
+    if (!m_retainEncodedImages)
+    {
+        m_loadOptions |= fastgltf::Options::LoadExternalImages;
+    }
 }
 
 static void NormalizeWindowsFileUris(const simdjson::dom::element& document, std::string& normalized)
@@ -1184,6 +1187,7 @@ static void RecordGltfDependencies(const std::string&           json,
                         {
                             progress.imageFiles.resize(index + 1);
                             progress.imageFiles[index] = resolved;
+                            progress.imageFileSizes.resize(index + 1);
                         }
                         const SceneDependency* recorded = nullptr;
                         for (const SceneDependency& dependency : asset.dependencies)
@@ -1202,6 +1206,10 @@ static void RecordGltfDependencies(const std::string&           json,
                                     progress.control->RegisterFile(resolved);
                                 }
                             }
+                            if (collection[0] == 'i')
+                            {
+                                progress.imageFileSizes[index] = recorded != nullptr ? recorded->size : stamp.size;
+                            }
                         }
                         else
                         {
@@ -1211,12 +1219,14 @@ static void RecordGltfDependencies(const std::string&           json,
                             // LoadExternalBuffers/Images stores each complete file in an Array.
                             const fastgltf::sources::Array* bytes =
                                 data != nullptr ? std::get_if<fastgltf::sources::Array>(data) : nullptr;
-                            if (bytes == nullptr || recorded == nullptr)
+                            const bool deferred = collection[0] == 'i' && data != nullptr
+                                               && std::holds_alternative<fastgltf::sources::URI>(*data);
+                            if ((bytes == nullptr && !deferred) || recorded == nullptr)
                             {
                                 errors.Fail("Could not identify the glTF dependency " + std::string(text),
                                             SceneImportStatus::SourceUnavailable);
                             }
-                            else if (bytes->bytes.size() != recorded->size)
+                            else if (bytes != nullptr && bytes->bytes.size() != recorded->size)
                             {
                                 errors.Fail("The glTF dependency " + std::string(text) + " changed while it was read",
                                             SceneImportStatus::SourceUnavailable);
@@ -1789,15 +1799,19 @@ static void LoadMaterialFeatures(const fastgltf::Material&         source,
 }
 
 static fastgltf::span<const std::byte> GetImageBytes(const fastgltf::Asset&  asset,
-                                                     const fastgltf::Image&  gltfImage,
+                                                     uint32_t                imageIndex,
                                                      std::vector<std::byte>& fileBytes,
-                                                     ImportErrors&           errors)
+                                                     ImportErrors&           errors,
+                                                     const GltfFileProgress& progress)
 {
     fastgltf::span<const std::byte> bytes;
+    const fastgltf::Image&          gltfImage = asset.images[imageIndex];
 
     if (const fastgltf::sources::URI* file = std::get_if<fastgltf::sources::URI>(&gltfImage.data))
     {
-        const std::string path(file->uri.path().begin(), file->uri.path().end());
+        const std::string path = imageIndex < progress.imageFiles.size() && !progress.imageFiles[imageIndex].empty()
+                                   ? progress.imageFiles[imageIndex]
+                                   : std::string(file->uri.path());
 
         std::ifstream stream(std::filesystem::u8path(path), std::ios::binary | std::ios::ate);
 
@@ -1805,7 +1819,12 @@ static fastgltf::span<const std::byte> GetImageBytes(const fastgltf::Asset&  ass
         {
             const std::streamoff length = stream.tellg();
 
-            if (length >= 0)
+            if (length >= 0 && imageIndex < progress.imageFileSizes.size()
+                && static_cast<uint64_t>(length) != progress.imageFileSizes[imageIndex])
+            {
+                errors.Fail("The glTF image changed while it was read: " + path, SceneImportStatus::SourceUnavailable);
+            }
+            else if (length >= 0)
             {
                 fileBytes.resize(static_cast<size_t>(length));
 
@@ -1853,7 +1872,7 @@ std::shared_ptr<const ImagePixels> GltfAssetReader::DecodeGltfImage(uint32_t ima
     {
         std::vector<std::byte>                fileBytes;
         const fastgltf::span<const std::byte> bytes =
-            GetImageBytes(m_gltfAsset, m_gltfAsset.images[imageIndex], fileBytes, m_errors);
+            GetImageBytes(m_gltfAsset, imageIndex, fileBytes, m_errors, m_fileProgress);
         std::shared_ptr<ImagePixels> image(new ImagePixels());
         ImportErrors                 decoding;
         decoding.Reset(nullptr, m_errors.GetImageBudget());
@@ -2969,7 +2988,7 @@ static std::vector<Vec4> DecodeImageLightFace(const fastgltf::Asset&  asset,
     }
     else
     {
-        bytes  = GetImageBytes(asset, asset.images[imageIndex], fileBytes, errors);
+        bytes  = GetImageBytes(asset, imageIndex, fileBytes, errors, progress);
 
         pixels = DecodeImagePixels(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size(), width, height, errors);
 

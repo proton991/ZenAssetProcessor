@@ -16,10 +16,15 @@ public:
         m_file(file),
         m_options(options),
         m_cancellation(cancellation),
+        m_resourceCount(count),
         m_position(detail::HeaderBytes + count * detail::DirectoryEntryBytes),
         m_bufferBudget(options.limits.maxAllocationBytes - count * sizeof(ResourceRecord))
     {
         m_records.reserve(static_cast<size_t>(count));
+        if (m_options.resourceProgress != nullptr)
+        {
+            m_options.resourceProgress(m_options.progressUser, 0, m_resourceCount);
+        }
     }
     template <class T> void Encode(ResourceType type, uint32_t index, const T& value, uint32_t version = 1)
     {
@@ -89,6 +94,10 @@ public:
                             m_records.push_back(record);
                             m_position     += stored.size();
                             m_decodedBytes += bytes.size();
+                            if (m_status.Succeeded() && m_options.resourceProgress != nullptr)
+                            {
+                                m_options.resourceProgress(m_options.progressUser, m_records.size(), m_resourceCount);
+                            }
                         }
                     }
                 }
@@ -150,6 +159,7 @@ protected:
     FILE*                       m_file;
     const SceneWriteOptions&    m_options;
     const Cancellation*         m_cancellation;
+    uint64_t                    m_resourceCount;
     uint64_t                    m_position;
     uint64_t                    m_decodedBytes{0};
     uint64_t                    m_bufferBudget;

@@ -22,6 +22,7 @@ struct GltfFileProgress
     SceneImportControl*      control{nullptr};
     std::string              root;
     std::vector<std::string> imageFiles;
+    std::vector<uint64_t>    imageFileSizes;
     void                     CompleteFile(const std::string& path) const;
     void                     CompleteImage(uint32_t index) const;
 };

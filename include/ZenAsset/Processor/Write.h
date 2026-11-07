@@ -21,6 +21,10 @@ struct SceneWriteOptions
     // Set false on entry and true once replacement commits, including a later
     // durability error. The pointed value must outlive this synchronous call.
     bool* published{nullptr};
+    // Synchronous resource counts, starting at zero. All resources written does
+    // not imply atomic publication has completed. The callback may cancel.
+    void* progressUser{nullptr};
+    void  (*resourceProgress)(void*, uint64_t completed, uint64_t total){nullptr};
 };
 // Writes an exclusive temporary sibling and replaces the destination only after
 // complete serialization and flush. Prepublication failure/cancellation preserves

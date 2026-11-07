@@ -118,6 +118,25 @@ void TrackStage(void* user, zenasset::SceneImportStage stage)
         static_cast<CancelAtDecode*>(user)->cancelled.store(true);
     }
 }
+struct WriteProgress
+{
+    uint64_t                completed{0};
+    uint64_t                total{0};
+    bool                    valid{true};
+    zenasset::Cancellation* cancellation{nullptr};
+};
+void TrackWriteProgress(void* user, uint64_t completed, uint64_t total)
+{
+    WriteProgress& progress  = *static_cast<WriteProgress*>(user);
+    progress.valid          &= total != 0 && completed <= total
+                            && (progress.total == 0 ? completed == 0 : total == progress.total && completed == progress.completed + 1);
+    progress.completed       = completed;
+    progress.total           = total;
+    if (progress.cancellation != nullptr && completed != 0)
+    {
+        progress.cancellation->Cancel();
+    }
+}
 bool CheckEncodedImages(const std::string& path)
 {
     zenasset::SceneImportRequest request;
@@ -165,8 +184,20 @@ bool CheckEncodedImages(const std::string& path)
             std::filesystem::temp_directory_path()
             / ("zen_encoded_image_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())
                + ".zenasset");
-        const zenasset::Status written  = zenasset::WriteScene(output.string(), *deferred.asset);
+        WriteProgress               progress;
+        zenasset::SceneWriteOptions options;
+        options.progressUser            = &progress;
+        options.resourceProgress        = &TrackWriteProgress;
+        const zenasset::Status written  = zenasset::WriteScene(output.string(), *deferred.asset, options);
         valid                          &= Check(written.Succeeded(), "Encoded images must serialize through temporary leases");
+        valid                          &= Check(progress.valid && progress.total != 0 && progress.completed == progress.total,
+                                                "Cache progress must count each written resource exactly once");
+        zenasset::Cancellation cancellation;
+        progress               = {};
+        progress.cancellation  = &cancellation;
+        valid                 &= Check(zenasset::WriteScene(output.string(), *deferred.asset, options, &cancellation).code
+                                           == zenasset::StatusCode::Cancelled,
+                                       "A progress callback may cancel writing without replacing the previous package");
         const zenasset::SceneReadResult loaded = zenasset::ReadScene(output.string());
         valid &= Check(loaded.status.Succeeded() && loaded.scene, "Serialized encoded images must load");
         if (loaded.scene)

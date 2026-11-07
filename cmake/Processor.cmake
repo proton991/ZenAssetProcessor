@@ -86,6 +86,8 @@ if(ZENASSET_BUILD_TESTING)
             ${ZENASSET_TEST_CORPUS_DIR}/texture_roles.gltf)
         add_test(NAME ZenAssetImportEncodedImages COMMAND ZenAssetImportTests --encoded
             ${ZENASSET_TEST_CORPUS_DIR}/texture_roles.gltf)
+        add_test(NAME ZenAssetImportEncodedExternalImages COMMAND ZenAssetImportTests --encoded
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/consumer-processor/fixtures/textured_triangle_external.gltf)
         add_test(NAME ZenAssetImportFixtures COMMAND ZenAssetImportTests
             ${ZENASSET_TEST_CORPUS_DIR}/complete_scene.glb
             ${ZENASSET_TEST_CORPUS_DIR}/typed_animation_targets.gltf
