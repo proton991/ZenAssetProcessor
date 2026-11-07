@@ -14,6 +14,7 @@ struct BackendContext
     uint64_t        maxObjGeometryBytes{16ull * 1024 * 1024 * 1024};
     GeometryBudget* geometry{nullptr};
     bool            retainEncodedGltfImages{false};
+    uint32_t        maxConcurrentImageDecodes{0};
 };
 class ISceneImporter
 {

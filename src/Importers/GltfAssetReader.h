@@ -4,6 +4,7 @@
 #include <vector>
 #include <map>
 #include <mutex>
+#include <semaphore>
 #include <string>
 #include <fastgltf/core.hpp>
 #include <fastgltf/types.hpp>
@@ -61,7 +62,7 @@ private:
     void                               LoadGltfAssetData(Scene* pScene);
     void                               LoadGltfRenderableNodes(Scene* pScene);
     void                               LoadGltfInstances(uint32_t nodeIndex, Scene& scene);
-    std::shared_ptr<const ImagePixels> DecodeGltfImage(uint32_t imageIndex);
+    std::shared_ptr<const ImagePixels> DecodeGltfImage(uint32_t imageIndex, std::counting_semaphore<>* decodeSlots);
 
     struct PrimitiveData;
 
@@ -101,5 +102,6 @@ private:
     ImageBudget*                m_imageBudget{nullptr};
     GeometryBudget*             m_geometryBudget{nullptr};
     bool                        m_retainEncodedImages{false};
+    uint32_t                    m_maxConcurrentImageDecodes{0};
 };
 } // namespace zenasset

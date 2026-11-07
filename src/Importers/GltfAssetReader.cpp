@@ -621,7 +621,8 @@ GltfAssetReader::GltfAssetReader(const BackendContext& context) :
     m_workers(context.processing),
     m_imageBudget(context.images),
     m_geometryBudget(context.geometry),
-    m_retainEncodedImages(context.retainEncodedGltfImages)
+    m_retainEncodedImages(context.retainEncodedGltfImages),
+    m_maxConcurrentImageDecodes(context.maxConcurrentImageDecodes)
 {
     if (m_workers == nullptr)
     {
@@ -1864,8 +1865,9 @@ static fastgltf::span<const std::byte> GetImageBytes(const fastgltf::Asset&  ass
     return bytes;
 }
 
-// Runs on texture workers. A failure records an error and returns null.
-std::shared_ptr<const ImagePixels> GltfAssetReader::DecodeGltfImage(uint32_t imageIndex)
+// Runs on texture workers. A failure records an error and returns null. A held
+// decode slot is returned after this decode's temporary buffers are freed.
+std::shared_ptr<const ImagePixels> GltfAssetReader::DecodeGltfImage(uint32_t imageIndex, std::counting_semaphore<>* decodeSlots)
 {
     std::shared_ptr<const ImagePixels> result;
     if (!m_errors.Failed())
@@ -1894,6 +1896,10 @@ std::shared_ptr<const ImagePixels> GltfAssetReader::DecodeGltfImage(uint32_t ima
             result = std::move(image);
             m_fileProgress.CompleteImage(imageIndex);
         }
+    }
+    if (decodeSlots != nullptr)
+    {
+        decodeSlots->release();
     }
     return result;
 }
@@ -2062,6 +2068,11 @@ void GltfAssetReader::LoadGltfTextures(Scene* pScene)
             }
         }
 
+        // A limited decode holds a slot from dispatch until it finishes. Slots
+        // bound only this stage, so mesh processing keeps every worker.
+        const bool limitedDecodes = m_maxConcurrentImageDecodes != 0 && m_maxConcurrentImageDecodes < m_workers->GetSize();
+        std::counting_semaphore<>        decodeAdmission(limitedDecodes ? m_maxConcurrentImageDecodes : 0);
+        std::counting_semaphore<>* const decodeSlots = limitedDecodes ? &decodeAdmission : nullptr;
         std::vector<uint32_t>                                        imageIndices(m_gltfAsset.images.size(), UINT32_MAX);
         std::vector<std::future<std::shared_ptr<const ImagePixels>>> futures;
         for (uint32_t index : m_uniqueTextureIndices)
@@ -2076,7 +2087,11 @@ void GltfAssetReader::LoadGltfTextures(Scene* pScene)
                 ImageAsset image;
                 image.name = std::string(m_gltfAsset.images[imageIndex].name);
                 pScene->images.push_back(std::move(image));
-                futures.emplace_back(m_workers->Push(&GltfAssetReader::DecodeGltfImage, this, imageIndex));
+                if (decodeSlots != nullptr)
+                {
+                    decodeSlots->acquire();
+                }
+                futures.emplace_back(m_workers->Push(&GltfAssetReader::DecodeGltfImage, this, imageIndex, decodeSlots));
             }
             TextureAsset texture;
             texture.name    = m_name + "Texture_" + std::to_string(index);

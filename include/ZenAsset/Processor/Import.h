@@ -117,6 +117,12 @@ struct SceneImportContext
     // acquire decoded leases with ResolveImagePixels. No source files are borrowed.
     // Enable for runtime/reference loads; texture processing requires resident images.
     bool retainEncodedGltfImages{false};
+    // Upper bound on source images decoded at once, which bounds transient
+    // decoded pixels. Zero, or a value at or above the worker count, leaves
+    // decodes limited by workerCount alone. Mesh processing still uses every
+    // worker. FBX and OBJ images are decoded one at a time. Kept last so
+    // positional initializers of the fields above stay valid.
+    uint32_t maxConcurrentImageDecodes{0};
 };
 struct SceneImportReport
 {

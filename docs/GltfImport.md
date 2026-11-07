@@ -105,6 +105,11 @@ Current bounds are distinct:
 - `maxDecodedImageBytes` defaults to 16 GiB of cumulative decoded/converted image
   allocation requests, including temporary copies. It is neither encoded-file
   size nor a process-RSS limit. Parser/codec-private allocations are separate.
+- `maxConcurrentImageDecodes` bounds how many images decode at once, and
+  therefore their transient decoded pixels and external-file bytes. Zero, or a
+  value at or above the worker count, leaves decodes limited by `workerCount`.
+  Each decode holds a slot from dispatch until it finishes; mesh processing
+  still uses every worker.
 - Image dimension arithmetic and decoder limits are checked. KTX2 input is
   limited to `UINT32_MAX` encoded bytes, 1-32 mip levels and a base RGBA pixel
   count fitting `UINT32_MAX` bytes. stb input must fit its signed-int size.

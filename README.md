@@ -121,8 +121,10 @@ without publishing a partial scene.
 Runtime/reference callers can set `SceneImportContext::retainEncodedGltfImages`.
 glTF images are fully validated, then keep immutable encoded source bytes; acquire
 temporary decoded pixels through `ResolveImagePixels`. No source files are borrowed,
-and decoded leases are not cached. Bound `workerCount` when importing large textures.
-Image-processing cooks still require resident images; the default import policy is unchanged.
+and decoded leases are not cached. Set `SceneImportContext::maxConcurrentImageDecodes`
+to bound how many large textures are decoded at once; mesh processing keeps every
+`workerCount` worker. Image-processing cooks still require resident images; the
+default import policy is unchanged.
 
 `SceneImportContext::maxGeometryBytes` separately admits glTF/FBX geometry,
 skin, morph, custom-attribute and animation storage before allocation. It defaults
