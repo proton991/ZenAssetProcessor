@@ -13,6 +13,7 @@ struct BackendContext
     uint64_t        maxSourceBytes{16ull * 1024 * 1024 * 1024};
     uint64_t        maxObjGeometryBytes{16ull * 1024 * 1024 * 1024};
     GeometryBudget* geometry{nullptr};
+    bool            retainEncodedGltfImages{false};
 };
 class ISceneImporter
 {

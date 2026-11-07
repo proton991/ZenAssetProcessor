@@ -84,6 +84,8 @@ if(ZENASSET_BUILD_TESTING)
             ${ZENASSET_TEST_CORPUS_DIR}/FBX/blender_293_embedded_textures_7400_binary.fbx)
         add_test(NAME ZenAssetImportGltfLimits COMMAND ZenAssetImportTests --limits
             ${ZENASSET_TEST_CORPUS_DIR}/texture_roles.gltf)
+        add_test(NAME ZenAssetImportEncodedImages COMMAND ZenAssetImportTests --encoded
+            ${ZENASSET_TEST_CORPUS_DIR}/texture_roles.gltf)
         add_test(NAME ZenAssetImportFixtures COMMAND ZenAssetImportTests
             ${ZENASSET_TEST_CORPUS_DIR}/complete_scene.glb
             ${ZENASSET_TEST_CORPUS_DIR}/typed_animation_targets.gltf

@@ -118,6 +118,12 @@ images occupy 4.5 GiB, but decoding them with temporary copies consumes at least
 CLI's `--image-budget` to choose a different bound; exceeding it fails the import
 without publishing a partial scene.
 
+Runtime/reference callers can set `SceneImportContext::retainEncodedGltfImages`.
+glTF images are fully validated, then keep immutable encoded source bytes; acquire
+temporary decoded pixels through `ResolveImagePixels`. No source files are borrowed,
+and decoded leases are not cached. Bound `workerCount` when importing large textures.
+Image-processing cooks still require resident images; the default import policy is unchanged.
+
 `SceneImportContext::maxGeometryBytes` separately admits glTF/FBX geometry,
 skin, morph, custom-attribute and animation storage before allocation. It defaults
 to 16 GiB; `zenassetc cook --geometry-budget BYTES` changes it. Capacity growth and

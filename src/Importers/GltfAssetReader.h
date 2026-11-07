@@ -99,5 +99,6 @@ private:
     WorkerPool*                 m_workers{nullptr};
     ImageBudget*                m_imageBudget{nullptr};
     GeometryBudget*             m_geometryBudget{nullptr};
+    bool                        m_retainEncodedImages{false};
 };
 } // namespace zenasset

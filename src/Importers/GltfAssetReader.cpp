@@ -618,7 +618,10 @@ static fastgltf::Error ValidateSceneAsset(fastgltf::Asset& asset)
 }
 
 GltfAssetReader::GltfAssetReader(const BackendContext& context) :
-    m_workers(context.processing), m_imageBudget(context.images), m_geometryBudget(context.geometry)
+    m_workers(context.processing),
+    m_imageBudget(context.images),
+    m_geometryBudget(context.geometry),
+    m_retainEncodedImages(context.retainEncodedGltfImages)
 {
     if (m_workers == nullptr)
     {
@@ -1854,9 +1857,14 @@ std::shared_ptr<const ImagePixels> GltfAssetReader::DecodeGltfImage(uint32_t ima
         std::shared_ptr<ImagePixels> image(new ImagePixels());
         ImportErrors                 decoding;
         decoding.Reset(nullptr, m_errors.GetImageBudget());
-        image->bytes = DecodeImagePixels(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size(), image->width,
-                                         image->height, decoding, &image->mips);
-        if (m_errors.Failed() || decoding.Failed() || image->bytes.empty() || image->width == 0 || image->height == 0)
+        image->bytes       = DecodeImagePixels(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size(), image->width,
+                                               image->height, decoding, &image->mips);
+        const bool decoded = !image->bytes.empty() && image->width != 0 && image->height != 0;
+        if (decoded && !decoding.Failed() && m_retainEncodedImages)
+        {
+            RetainEncodedImage(*image, reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size(), decoding);
+        }
+        if (m_errors.Failed() || decoding.Failed() || !decoded)
         {
             m_errors.Fail("Failed to decode glTF image " + std::to_string(imageIndex)
                               + (decoding.Failed() ? ": " + decoding.Message() : std::string()),

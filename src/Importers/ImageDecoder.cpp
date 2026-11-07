@@ -11,6 +11,52 @@ namespace zenasset
 {
 namespace
 {
+class EncodedImageSource final : public ImagePayloadSource
+{
+public:
+    EncodedImageSource(const uint8_t* data, size_t size, uint64_t decodedBytes, PixelFormat format) :
+        m_encoded(data, data + size), m_decodeBudget(decodedBytes * 2), m_format(format)
+    {}
+
+    Status Read(std::shared_ptr<const ImagePixels>& pixels, const Cancellation* cancellation) const override
+    {
+        Status status;
+        pixels.reset();
+        if (cancellation != nullptr && cancellation->IsCancelled())
+        {
+            status = {StatusCode::Cancelled, "Image decoding cancelled"};
+        }
+        if (status.Succeeded())
+        {
+            std::shared_ptr<ImagePixels> resident = std::make_shared<ImagePixels>();
+            ImageBudget                  budget(m_decodeBudget);
+            ImportErrors                 errors;
+            errors.Reset(nullptr, &budget);
+            resident->format = m_format;
+            resident->bytes  = DecodeImagePixels(m_encoded.data(), m_encoded.size(), resident->width, resident->height, errors,
+                                                 &resident->mips);
+            if (errors.Failed())
+            {
+                status = {errors.Status(), errors.Message()};
+            }
+            else if (cancellation != nullptr && cancellation->IsCancelled())
+            {
+                status = {StatusCode::Cancelled, "Image decoding cancelled"};
+            }
+            else
+            {
+                pixels = std::move(resident);
+            }
+        }
+        return status;
+    }
+
+private:
+    std::vector<uint8_t> m_encoded;
+    uint64_t             m_decodeBudget;
+    PixelFormat          m_format;
+};
+
 bool ReservePixels(uint32_t width, uint32_t height, uint32_t copies, ImportErrors& errors)
 {
     const uint64_t count = uint64_t(width) * height;
@@ -163,5 +209,33 @@ std::vector<uint8_t> DecodeImagePixels(const uint8_t*                     data,
         }
     }
     return pixels;
+}
+void RetainEncodedImage(ImagePixels& image, const uint8_t* data, size_t size, ImportErrors& errors)
+{
+    uint64_t decodedBytes = image.bytes.size();
+    for (const std::vector<uint8_t>& mip : image.mips)
+    {
+        if (mip.size() > UINT64_MAX - decodedBytes)
+        {
+            errors.Fail("Image storage exceeds decoder limit", SceneImportStatus::ResourceLimit);
+        }
+        else
+        {
+            decodedBytes += mip.size();
+        }
+    }
+    if (decodedBytes > UINT64_MAX / 2)
+    {
+        errors.Fail("Image storage exceeds decoder limit", SceneImportStatus::ResourceLimit);
+    }
+    if (!errors.Failed() && errors.ReserveImageBytes(size))
+    {
+        image.payloadSource = std::make_shared<EncodedImageSource>(data, size, decodedBytes, image.format);
+        std::vector<uint8_t>().swap(image.bytes);
+        for (std::vector<uint8_t>& mip : image.mips)
+        {
+            std::vector<uint8_t>().swap(mip);
+        }
+    }
 }
 } // namespace zenasset

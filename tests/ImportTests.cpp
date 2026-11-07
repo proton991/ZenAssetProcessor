@@ -1,4 +1,8 @@
 #include "ZenAsset/Processor/Import.h"
+#include "ZenAsset/Processor/Cook.h"
+#include "ZenAsset/Processor/Write.h"
+#include "ZenAsset/Reader/Scene.h"
+#include <chrono>
 #include <iostream>
 #include <future>
 #include <filesystem>
@@ -114,6 +118,76 @@ void TrackStage(void* user, zenasset::SceneImportStage stage)
         static_cast<CancelAtDecode*>(user)->cancelled.store(true);
     }
 }
+bool CheckEncodedImages(const std::string& path)
+{
+    zenasset::SceneImportRequest request;
+    request.path = path;
+    zenasset::SceneImportContext context;
+    context.workerCount                        = 2;
+    const zenasset::SceneImportResult resident = zenasset::ImportScene(request, context);
+    context.retainEncodedGltfImages            = true;
+    const zenasset::SceneImportResult deferred = zenasset::ImportScene(request, context);
+    bool valid = Check(resident.asset && deferred.asset, "Both image storage policies must import successfully");
+    if (valid)
+    {
+        valid &= Check(!resident.asset->images.empty() && resident.asset->images.size() == deferred.asset->images.size(),
+                       "Deferred import must preserve images");
+        for (size_t index = 0; valid && index < resident.asset->images.size(); ++index)
+        {
+            const std::shared_ptr<const zenasset::ImagePixels>& descriptor = deferred.asset->images[index].pixels;
+            const zenasset::ImagePixels&                        expected   = *resident.asset->images[index].pixels;
+            valid &= Check(descriptor && descriptor->payloadSource && descriptor->bytes.empty(),
+                           "Encoded image must not retain decoded base pixels");
+            if (valid)
+            {
+                for (const std::vector<uint8_t>& mip : descriptor->mips)
+                {
+                    valid &= Check(mip.empty(), "Encoded image must not retain decoded mip pixels");
+                }
+                std::shared_ptr<const zenasset::ImagePixels> lease;
+                const zenasset::Status                       decoded = zenasset::ResolveImagePixels(descriptor, lease);
+                valid &= Check(decoded.Succeeded() && lease && lease->bytes == expected.bytes && lease->mips == expected.mips,
+                               "Encoded lease must preserve every pixel and mip");
+                std::weak_ptr<const zenasset::ImagePixels> released = lease;
+                lease.reset();
+                valid &= Check(released.expired(), "Releasing a lease must free decoded storage");
+                zenasset::Cancellation cancelled;
+                cancelled.Cancel();
+                valid &=
+                    Check(zenasset::ResolveImagePixels(descriptor, lease, &cancelled).code == zenasset::StatusCode::Cancelled
+                              && !lease,
+                          "Cancelled image resolution must publish no pixels");
+            }
+        }
+        const zenasset::SceneCookResult cooked = zenasset::CookScene(deferred.asset);
+        valid &= Check(cooked.status.Succeeded(), "Reference cooking must accept encoded images");
+        const std::filesystem::path output =
+            std::filesystem::temp_directory_path()
+            / ("zen_encoded_image_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())
+               + ".zenasset");
+        const zenasset::Status written  = zenasset::WriteScene(output.string(), *deferred.asset);
+        valid                          &= Check(written.Succeeded(), "Encoded images must serialize through temporary leases");
+        const zenasset::SceneReadResult loaded = zenasset::ReadScene(output.string());
+        valid &= Check(loaded.status.Succeeded() && loaded.scene, "Serialized encoded images must load");
+        if (loaded.scene)
+        {
+            valid &= Check(loaded.scene->images.size() == resident.asset->images.size(), "Serialization preserves image count");
+            for (size_t index = 0; valid && index < resident.asset->images.size(); ++index)
+            {
+                valid &= Check(loaded.scene->images[index].pixels->bytes == resident.asset->images[index].pixels->bytes
+                                   && loaded.scene->images[index].pixels->mips == resident.asset->images[index].pixels->mips,
+                               "Serialization preserves image contents");
+            }
+        }
+        std::error_code error;
+        std::filesystem::remove(output, error);
+        context.maxDecodedImageBytes = 0;
+        valid &= Check(zenasset::ImportScene(request, context).status == zenasset::StatusCode::ResourceLimit,
+                       "Encoded retention must still enforce decode budgets during validation");
+    }
+    return valid;
+}
+
 bool CheckLimits(const std::string& path)
 {
     zenasset::SceneImportRequest request;
@@ -149,7 +223,11 @@ bool CheckLimits(const std::string& path)
 int RunMain(const std::vector<std::string>& arguments)
 {
     bool valid = CheckControlFlow();
-    if (arguments.size() == 3 && arguments[1] == "--limits")
+    if (arguments.size() == 3 && arguments[1] == "--encoded")
+    {
+        valid &= CheckEncodedImages(arguments[2]);
+    }
+    else if (arguments.size() == 3 && arguments[1] == "--limits")
     {
         valid &= CheckLimits(arguments[2]);
     }

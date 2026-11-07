@@ -112,6 +112,11 @@ struct SceneImportContext
     // is a requested-storage admission limit, not an RSS or final-size limit.
     // OBJ retains the separate maxObjGeometryBytes policy above.
     uint64_t maxGeometryBytes{16ull * 1024 * 1024 * 1024};
+    // glTF images are still fully decoded/validated during import, but retain
+    // immutable encoded bytes instead of resident pixels afterward. Consumers
+    // acquire decoded leases with ResolveImagePixels. No source files are borrowed.
+    // Enable for runtime/reference loads; texture processing requires resident images.
+    bool retainEncodedGltfImages{false};
 };
 struct SceneImportReport
 {
