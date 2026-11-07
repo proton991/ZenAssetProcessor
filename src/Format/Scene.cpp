@@ -4,6 +4,47 @@
 
 namespace zenasset
 {
+Status ResolveImagePixels(const std::shared_ptr<const ImagePixels>& pixels,
+                          std::shared_ptr<const ImagePixels>&       resolved,
+                          const Cancellation*                       cancellation)
+{
+    Status                             status;
+    std::shared_ptr<const ImagePixels> candidate;
+    if (!pixels)
+    {
+        status = {StatusCode::InvalidData, "Image has no pixel descriptor"};
+    }
+    else if (cancellation != nullptr && cancellation->IsCancelled())
+    {
+        status = {StatusCode::Cancelled, "Image read cancelled"};
+    }
+    else if (!pixels->payloadSource)
+    {
+        candidate = pixels;
+    }
+    else
+    {
+        status = pixels->payloadSource->Read(candidate, cancellation);
+        if (status.Succeeded()
+            && (!candidate || candidate->payloadSource || candidate->width != pixels->width
+                || candidate->height != pixels->height || candidate->format != pixels->format
+                || candidate->arrayLayers != pixels->arrayLayers || candidate->mips.size() != pixels->mips.size()
+                || !pixels->bytes.empty()))
+        {
+            status = {StatusCode::InvalidData, "Deferred image disagrees with its descriptor"};
+        }
+        for (const std::vector<uint8_t>& mip : pixels->mips)
+        {
+            if (!mip.empty())
+            {
+                status = {StatusCode::InvalidData, "Deferred image contains resident mip data"};
+            }
+        }
+    }
+    resolved = status.Succeeded() ? std::move(candidate) : nullptr;
+    return status;
+}
+
 bool GetPixelFormatInfo(PixelFormat format, PixelFormatInfo& info)
 {
     bool supported = true;

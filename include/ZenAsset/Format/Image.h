@@ -2,6 +2,7 @@
 #include <span>
 #include "ZenAsset/Format/AssetId.h"
 #include "ZenAsset/Format/Math.h"
+#include "ZenAsset/Format/Status.h"
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -79,6 +80,7 @@ struct SamplerAsset : SamplerParameters
     std::string name;
 };
 
+class ImagePayloadSource;
 struct ImagePixels
 {
     uint32_t    width{0};
@@ -92,7 +94,26 @@ struct ImagePixels
     // Each level contains tightly packed layers in ascending layer order. Array
     // pages require explicit mips, including level zero; no implicit generation.
     uint32_t arrayLayers{1};
+    // Optional nonresident storage. Width/height/format/layers and the number of
+    // explicit mip levels remain available; byte arrays are empty. Resolve before
+    // consuming pixels. Ordinary import/cook/read calls remain resident by default.
+    std::shared_ptr<const ImagePayloadSource> payloadSource;
 };
+
+class ImagePayloadSource
+{
+public:
+    virtual ~ImagePayloadSource() = default;
+    // Returns a resident immutable image or an error, never another deferred image.
+    virtual Status Read(std::shared_ptr<const ImagePixels>& pixels, const Cancellation* cancellation) const = 0;
+};
+
+// Resolves at most this image, without retaining a global cache. The caller owns
+// the returned lease; releasing it releases decoded pixels. Descriptor agreement
+// is checked before publishing a lease. Payload readers also validate integrity.
+Status ResolveImagePixels(const std::shared_ptr<const ImagePixels>& pixels,
+                          std::shared_ptr<const ImagePixels>&       resolved,
+                          const Cancellation*                       cancellation = nullptr);
 
 // The authoritative base level, including all array layers, without copying.
 const std::vector<uint8_t>& GetImageBaseBytes(const ImagePixels& pixels);

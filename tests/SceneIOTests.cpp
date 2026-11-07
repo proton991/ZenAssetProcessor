@@ -929,6 +929,71 @@ bool TestMipOwnershipSchema()
     return valid;
 }
 
+bool TestDeferredImages(const std::filesystem::path& directory)
+{
+    const std::string path    = (directory / "deferred.zenasset").string();
+    const std::string copy    = (directory / "deferred-copy.zenasset").string();
+    Scene             source  = MakeScene();
+    bool              valid   = Check(WriteScene(path, source).Succeeded(), "Write deferred fixture");
+    SceneReadResult   read    = ReadSceneDeferredImages(path);
+    valid                    &= Check(read.status.Succeeded(), "Read graph with deferred images");
+    if (read.scene)
+    {
+        for (size_t index = 0; index < read.scene->images.size(); ++index)
+        {
+            const std::shared_ptr<const ImagePixels>& descriptor = read.scene->images[index].pixels;
+            valid &=
+                Check(descriptor && descriptor->payloadSource && descriptor->bytes.empty(), "Descriptor has no resident base");
+            for (const std::vector<uint8_t>& mip : descriptor->mips)
+            {
+                valid &= Check(mip.empty(), "Descriptor has no resident mip");
+            }
+            std::shared_ptr<const ImagePixels> lease;
+            valid &= Check(ResolveImagePixels(descriptor, lease).Succeeded(), "Read individual image lease");
+            valid &= Check(lease && GetImageBaseBytes(*lease) == GetImageBaseBytes(*source.images[index].pixels),
+                           "Image lease preserves exact pixels");
+            valid &=
+                Check(lease && lease->mips == source.images[index].pixels->mips, "Image lease preserves every authored mip");
+            std::weak_ptr<const ImagePixels> released = lease;
+            lease.reset();
+            valid &= Check(released.expired(), "Released image lease is not retained by a cache");
+            std::shared_ptr<ImagePixels> changed = std::make_shared<ImagePixels>(*descriptor);
+            ++changed->width;
+            valid &= Check(!ResolveImagePixels(changed, lease).Succeeded() && !lease, "Reject changed descriptor");
+            Cancellation cancelled;
+            cancelled.Cancel();
+            valid &= Check(ResolveImagePixels(descriptor, lease, &cancelled).code == StatusCode::Cancelled && !lease,
+                           "Cancelled lease publishes no pixels");
+        }
+        valid &= Check(ValidateSceneAsset(*read.scene), "Deferred scene still validates all payloads");
+        valid &= Check(WriteScene(copy, *read.scene).Succeeded(), "Write deferred scene by resolving each image");
+        SceneReadResult restored  = ReadScene(copy);
+        valid                    &= Check(restored.status.Succeeded(), "Read resolved copy");
+        SceneCookOptions options;
+        options.settings.textures.generateMipmaps = true;
+        valid &= Check(!CookScene(read.scene, options).status.Succeeded(), "Cooking requires explicit resident images");
+        const PackageResult package = OpenPackage(path);
+        if (package.package)
+        {
+            valid &=
+                Check(!ReadSceneImage(*package.package, UINT32_MAX).status.Succeeded(), "Reject out-of-range image resource");
+            SceneReadLimits tiny;
+            tiny.maxAllocationBytes  = 1;
+            valid                   &= Check(ReadSceneImage(*package.package, 0, tiny).status.code == StatusCode::ResourceLimit,
+                                             "Individual image reads honor allocation limits");
+            valid &=
+                Check(!ReadSceneDeferredImages(package.package, tiny).scene, "Deferred graph reads honor allocation limits");
+        }
+        // A retained descriptor owns its package handle after the graph is released.
+        const std::shared_ptr<const ImagePixels> retained = read.scene->images[0].pixels;
+        read.scene.reset();
+        std::shared_ptr<const ImagePixels> lease;
+        valid &= Check(ResolveImagePixels(retained, lease).Succeeded(), "Image lease outlives its scene graph");
+    }
+    valid &= Check(!ReadSceneDeferredImages(std::shared_ptr<const Package>{}).status.Succeeded(), "Reject null package");
+    return valid;
+}
+
 } // namespace
 
 int main(int argc, char** argv)
@@ -940,6 +1005,7 @@ int main(int argc, char** argv)
     bool valid  = Check(!error, "Cannot create test output directory");
     valid      &= TestRoundTrip(directory);
     valid      &= TestMipOwnershipSchema();
+    valid      &= TestDeferredImages(directory);
     valid      &= TestBlockModeValidation(directory);
     valid      &= TestTextureInterpretation(directory);
     valid      &= TestEnvironmentEncoding(directory);

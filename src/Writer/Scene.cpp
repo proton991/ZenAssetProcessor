@@ -64,6 +64,19 @@ class SceneEncoder : public detail::ResourceEncoder
 {
 public:
     using detail::ResourceEncoder::ResourceEncoder;
+    void Encode(ResourceType type, uint32_t index, const ImageAsset& value)
+    {
+        ImageAsset resident;
+        resident.name = value.name;
+        if (m_status.Succeeded())
+        {
+            m_status = ResolveImagePixels(value.pixels, resident.pixels, m_cancellation);
+        }
+        if (m_status.Succeeded())
+        {
+            detail::ResourceEncoder::Encode(type, index, resident, ResourceVersion(type, resident));
+        }
+    }
     template <class T> void Encode(ResourceType type, uint32_t index, const T& value)
     {
         detail::ResourceEncoder::Encode(type, index, value, ResourceVersion(type, value));

@@ -40,8 +40,8 @@ bool ValidateReferences(const Scene& asset)
     }
     for (const ImageAsset& image : asset.images)
     {
-        valid &=
-            image.pixels && image.pixels->width > 0 && image.pixels->height > 0 && !GetImageBaseBytes(*image.pixels).empty();
+        valid &= image.pixels && image.pixels->width > 0 && image.pixels->height > 0
+              && (!GetImageBaseBytes(*image.pixels).empty() || image.pixels->payloadSource);
     }
     for (const MaterialAsset& material : asset.materials)
     {
@@ -216,24 +216,7 @@ bool ValidImages(const Scene& asset)
     bool valid = true;
     for (const ImageAsset& image : asset.images)
     {
-        const ImagePixels& pixels  = *image.pixels;
-        valid                     &= pixels.format == PixelFormat::RGBA8Unorm || pixels.format == PixelFormat::RGBA8Srgb
-                                  || pixels.format == PixelFormat::BC7Unorm || pixels.format == PixelFormat::BC7Srgb
-                                  || pixels.format == PixelFormat::BC4Unorm || pixels.format == PixelFormat::BC5Unorm;
-        uint64_t bytes             = 0;
-        valid &= GetImageArrayLevelByteSize(pixels.format, pixels.width, pixels.height, pixels.arrayLayers, bytes)
-              && bytes == GetImageBaseBytes(pixels).size() && (pixels.arrayLayers == 1 || !pixels.mips.empty())
-              && pixels.mips.size() <= MipCount(pixels.width, pixels.height)
-              && (pixels.mips.empty() || pixels.bytes.empty() || pixels.mips[0] == pixels.bytes)
-              && detail::ValidBlockPayload(pixels.format, GetImageBaseBytes(pixels));
-        for (size_t level = 0; valid && level < pixels.mips.size(); ++level)
-        {
-            const uint32_t width   = std::max(1u, pixels.width >> level);
-            const uint32_t height  = std::max(1u, pixels.height >> level);
-            valid                 &= GetImageArrayLevelByteSize(pixels.format, width, height, pixels.arrayLayers, bytes)
-                                  && bytes == pixels.mips[level].size()
-                                  && (level == 0 || detail::ValidBlockPayload(pixels.format, pixels.mips[level]));
-        }
+        valid &= ValidateImagePixels(image.pixels);
     }
     for (const TextureAsset& texture : asset.textures)
     {
@@ -755,6 +738,34 @@ bool ValidLightsAndCameras(const Scene& asset)
     return valid;
 }
 } // namespace
+
+bool ValidateImagePixels(const std::shared_ptr<const ImagePixels>& source)
+{
+    std::shared_ptr<const ImagePixels> resident;
+    bool                               valid = ResolveImagePixels(source, resident).Succeeded();
+    if (valid)
+    {
+        const ImagePixels& pixels  = *resident;
+        valid                     &= pixels.format == PixelFormat::RGBA8Unorm || pixels.format == PixelFormat::RGBA8Srgb
+                                  || pixels.format == PixelFormat::BC7Unorm || pixels.format == PixelFormat::BC7Srgb
+                                  || pixels.format == PixelFormat::BC4Unorm || pixels.format == PixelFormat::BC5Unorm;
+        uint64_t bytes             = 0;
+        valid &= GetImageArrayLevelByteSize(pixels.format, pixels.width, pixels.height, pixels.arrayLayers, bytes)
+              && bytes == GetImageBaseBytes(pixels).size() && (pixels.arrayLayers == 1 || !pixels.mips.empty())
+              && pixels.mips.size() <= MipCount(pixels.width, pixels.height)
+              && (pixels.mips.empty() || pixels.bytes.empty() || pixels.mips[0] == pixels.bytes)
+              && detail::ValidBlockPayload(pixels.format, GetImageBaseBytes(pixels));
+        for (size_t level = 0; valid && level < pixels.mips.size(); ++level)
+        {
+            const uint32_t width   = std::max(1u, pixels.width >> level);
+            const uint32_t height  = std::max(1u, pixels.height >> level);
+            valid                 &= GetImageArrayLevelByteSize(pixels.format, width, height, pixels.arrayLayers, bytes)
+                                  && bytes == pixels.mips[level].size()
+                                  && (level == 0 || detail::ValidBlockPayload(pixels.format, pixels.mips[level]));
+        }
+    }
+    return valid;
+}
 
 bool ValidateAnimationAsset(const Scene& asset, const AnimationAsset& animation, std::string& failure)
 {

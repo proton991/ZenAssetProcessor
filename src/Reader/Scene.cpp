@@ -6,6 +6,7 @@
 #include "Format/PackageLayout.h"
 #include "Format/MeshEncoding.h"
 #include <limits>
+#include <type_traits>
 
 namespace zenasset
 {
@@ -52,11 +53,37 @@ Status ValidateReadLimits(const Package&         package,
     return status;
 }
 
+class PackageImageSource final : public ImagePayloadSource
+{
+public:
+    PackageImageSource(std::shared_ptr<const Package> package, uint32_t index, std::shared_ptr<const SceneReadLimits> limits) :
+        m_package(std::move(package)), m_index(index), m_limits(std::move(limits))
+    {}
+    Status Read(std::shared_ptr<const ImagePixels>& pixels, const Cancellation* cancellation) const override
+    {
+        SceneImageReadResult result = ReadSceneImage(*m_package, m_index, *m_limits, cancellation);
+        pixels                      = result.status.Succeeded() ? std::move(result.image.pixels) : nullptr;
+        return result.status;
+    }
+
+private:
+    std::shared_ptr<const Package>         m_package;
+    uint32_t                               m_index;
+    std::shared_ptr<const SceneReadLimits> m_limits;
+};
+
 class SceneDecoder
 {
 public:
-    SceneDecoder(const Package& package, const SceneReadLimits& limits, const Cancellation* cancellation) :
-        m_package(package), m_limits(limits), m_cancellation(cancellation), m_budget(limits.maxAllocationBytes)
+    SceneDecoder(const Package&                 package,
+                 const SceneReadLimits&         limits,
+                 const Cancellation*            cancellation,
+                 std::shared_ptr<const Package> deferredPackage = {}) :
+        m_package(package),
+        m_limits(limits),
+        m_cancellation(cancellation),
+        m_budget(limits.maxAllocationBytes),
+        m_deferredPackage(std::move(deferredPackage))
     {}
 
     template <class T> void Decode(ResourceType type, uint32_t index, T& value)
@@ -195,6 +222,13 @@ public:
             for (uint32_t index = 0; m_status.Succeeded() && index < count; ++index)
             {
                 Decode(type, index, values[index]);
+                if constexpr (std::is_same_v<T, ImageAsset>)
+                {
+                    if (m_status.Succeeded() && m_deferredPackage)
+                    {
+                        DeferImage(index, values[index]);
+                    }
+                }
             }
         }
     }
@@ -220,6 +254,12 @@ public:
     Status Validate(const Scene& scene)
     {
         ZENASSET_MEASURE_SCOPE(SceneValidate);
+        if (m_imageLimits)
+        {
+            // All retained graph allocations are now known. Each later lease
+            // must fit beside that graph, including its codec and decode scratch.
+            m_imageLimits->maxAllocationBytes = m_budget;
+        }
         if (m_status.Succeeded() && !detail::FitsValidationBudget(scene, m_budget))
         {
             m_status = {StatusCode::ResourceLimit, "Scene validation scratch exceeds the decoded allocation budget"};
@@ -237,17 +277,59 @@ public:
     }
 
 private:
-    const Package&         m_package;
-    const SceneReadLimits& m_limits;
-    const Cancellation*    m_cancellation;
-    uint64_t               m_budget;
-    uint64_t               m_geometryBytes{0};
-    Status                 m_status;
-    detail::ResourceCounts m_counts{};
-    BuildMetadata          m_metadata;
+    void DeferImage(uint32_t index, ImageAsset& image)
+    {
+        if (!m_imageLimits && m_budget >= sizeof(SceneReadLimits))
+        {
+            m_budget      -= sizeof(SceneReadLimits);
+            m_imageLimits  = std::make_shared<SceneReadLimits>(m_limits);
+        }
+        if (!ValidateImagePixels(image.pixels))
+        {
+            m_status = {StatusCode::InvalidData, "Invalid image payload"};
+        }
+        else if (!m_imageLimits
+                 || m_budget < sizeof(PackageImageSource) + sizeof(ImagePixels)
+                                   + image.pixels->mips.size() * sizeof(std::vector<uint8_t>))
+        {
+            m_status = {StatusCode::ResourceLimit, "Deferred image descriptor exceeds allocation budget"};
+        }
+        else
+        {
+            const ImagePixels&           resident   = *image.pixels;
+            std::shared_ptr<ImagePixels> descriptor = std::make_shared<ImagePixels>();
+            descriptor->width                       = resident.width;
+            descriptor->height                      = resident.height;
+            descriptor->format                      = resident.format;
+            descriptor->arrayLayers                 = resident.arrayLayers;
+            descriptor->mips.resize(resident.mips.size());
+            uint64_t released = resident.bytes.size();
+            for (const std::vector<uint8_t>& mip : resident.mips)
+            {
+                released += mip.size();
+            }
+            m_budget                  += released;
+            m_budget                  -= sizeof(PackageImageSource);
+            descriptor->payloadSource  = std::make_shared<PackageImageSource>(m_deferredPackage, index, m_imageLimits);
+            image.pixels               = std::move(descriptor);
+        }
+    }
+
+    const Package&                   m_package;
+    const SceneReadLimits&           m_limits;
+    const Cancellation*              m_cancellation;
+    uint64_t                         m_budget;
+    uint64_t                         m_geometryBytes{0};
+    Status                           m_status;
+    detail::ResourceCounts           m_counts{};
+    BuildMetadata                    m_metadata;
+    std::shared_ptr<const Package>   m_deferredPackage;
+    std::shared_ptr<SceneReadLimits> m_imageLimits;
 };
-} // namespace
-SceneReadResult ReadScene(const Package& package, const SceneReadLimits& limits, const Cancellation* cancellation)
+SceneReadResult ReadSceneImpl(const Package&                 package,
+                              const SceneReadLimits&         limits,
+                              const Cancellation*            cancellation,
+                              std::shared_ptr<const Package> deferredPackage)
 {
     SceneReadResult result;
     uint64_t        allocationBytes = 0;
@@ -261,7 +343,7 @@ SceneReadResult ReadScene(const Package& package, const SceneReadLimits& limits,
         SceneReadLimits charged       = limits;
         charged.maxAllocationBytes   -= allocationBytes;
         std::shared_ptr<Scene> scene  = std::make_shared<Scene>();
-        SceneDecoder           decoder(package, charged, cancellation);
+        SceneDecoder           decoder(package, charged, cancellation, std::move(deferredPackage));
         result.status = decoder.ReadManifest(*scene);
         if (result.status.Succeeded())
         {
@@ -284,6 +366,70 @@ SceneReadResult ReadScene(const Package& package, const SceneReadLimits& limits,
     }
     return result;
 }
+} // namespace
+
+SceneReadResult ReadScene(const Package& package, const SceneReadLimits& limits, const Cancellation* cancellation)
+{
+    return ReadSceneImpl(package, limits, cancellation, {});
+}
+
+SceneReadResult ReadSceneDeferredImages(std::shared_ptr<const Package> package,
+                                        const SceneReadLimits&         limits,
+                                        const Cancellation*            cancellation)
+{
+    SceneReadResult result;
+    if (!package)
+    {
+        result.status = {StatusCode::InvalidArgument, "Deferred image reading requires an open package"};
+    }
+    else
+    {
+        result = ReadSceneImpl(*package, limits, cancellation, package);
+    }
+    return result;
+}
+
+SceneReadResult ReadSceneDeferredImages(const std::string&     path,
+                                        const SceneReadLimits& limits,
+                                        const Cancellation*    cancellation)
+{
+    const PackageResult opened = OpenPackage(path, limits.package, cancellation);
+    SceneReadResult     result;
+    result.status = opened.status;
+    if (result.status.Succeeded())
+    {
+        result = ReadSceneDeferredImages(opened.package, limits, cancellation);
+    }
+    return result;
+}
+
+SceneImageReadResult ReadSceneImage(const Package&         package,
+                                    uint32_t               index,
+                                    const SceneReadLimits& limits,
+                                    const Cancellation*    cancellation)
+{
+    SceneImageReadResult result;
+    uint64_t             allocationBytes = 0;
+    result.status                        = ValidateReadLimits(package, limits, sizeof(ImageAsset), allocationBytes);
+    if (result.status.Succeeded())
+    {
+        SceneReadLimits charged     = limits;
+        charged.maxAllocationBytes -= allocationBytes;
+        SceneDecoder decoder(package, charged, cancellation);
+        decoder.Decode(ResourceType::Image, index, result.image);
+        result.status = decoder.ResultStatus();
+        if (result.status.Succeeded() && !ValidateImagePixels(result.image.pixels))
+        {
+            result.status = {StatusCode::InvalidData, "Invalid image payload"};
+        }
+    }
+    if (!result.status.Succeeded())
+    {
+        result.image = {};
+    }
+    return result;
+}
+
 SceneReadResult ReadScene(const std::string& path, const SceneReadLimits& limits, const Cancellation* cancellation)
 {
     ZENASSET_MEASURE_SCOPE(Read);

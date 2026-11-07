@@ -35,6 +35,25 @@ SceneReadResult ReadScene(const std::string&     path,
 SceneReadResult ReadScene(const Package&         package,
                           const SceneReadLimits& limits       = {},
                           const Cancellation*    cancellation = nullptr);
+// Validates the same graph and image payloads as ReadScene, but retains image
+// descriptors and open package handles. Pixel consumers must ResolveImagePixels.
+// Geometry stays resident. No schema change or original source files are required.
+SceneReadResult ReadSceneDeferredImages(const std::string&     path,
+                                        const SceneReadLimits& limits       = {},
+                                        const Cancellation*    cancellation = nullptr);
+SceneReadResult ReadSceneDeferredImages(std::shared_ptr<const Package> package,
+                                        const SceneReadLimits&         limits       = {},
+                                        const Cancellation*            cancellation = nullptr);
+
+struct SceneImageReadResult
+{
+    Status     status;
+    ImageAsset image;
+};
+SceneImageReadResult ReadSceneImage(const Package&         package,
+                                    uint32_t               index,
+                                    const SceneReadLimits& limits       = {},
+                                    const Cancellation*    cancellation = nullptr);
 // Validates and decodes provenance only; does not read runtime resource payloads
 // or touch source dependencies. Full scene graph validation remains ReadScene's job.
 SceneMetadataResult ReadSceneMetadata(const std::string&     path,

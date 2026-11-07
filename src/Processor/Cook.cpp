@@ -27,6 +27,16 @@ SceneCookResult CookSceneImpl(std::shared_ptr<const Scene> input,
     {
         result.status = {StatusCode::Cancelled, "Scene cooking cancelled"};
     }
+    if (result.status.Succeeded() && HasProcessingOperations(options.settings))
+    {
+        for (const ImageAsset& image : input->images)
+        {
+            if (image.pixels && image.pixels->payloadSource)
+            {
+                result.status = {StatusCode::UnsupportedFeature, "Resolve deferred image payloads before cooking"};
+            }
+        }
+    }
     if (result.status.Succeeded() && !detail::FitsValidationBudget(*input, options.limits.maxAllocationBytes))
     {
         result.status = {StatusCode::ResourceLimit, "Scene validation scratch exceeds the cooking allocation budget"};
