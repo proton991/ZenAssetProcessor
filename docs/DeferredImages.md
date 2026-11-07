@@ -21,6 +21,13 @@ resolves one image at a time. Cooking deferred images is rejected when processin
 is requested: resolve them explicitly first, or use the ordinary resident reader.
 Deferred reads reduce retained CPU pixels, not GPU texture residency or mesh data.
 
+Meshoptimizer resources on little-endian hosts decode directly into the final
+typed vertex/index vectors. This removes one complete expanded geometry buffer.
+The portable canonical-byte decoder remains available for other host byte orders.
+Both paths share envelope, block, cancellation and budget checks. Typed decoding
+has bitwise regression coverage (including nonfinite bit patterns, which scene
+validation subsequently rejects), malformed payloads and cancellation mid-stream.
+
 Verified with all 43 Release CTest suites, including lease lifetime, exact mip
 contents, descriptor mismatch, cancellation, allocation limits, and writing a
 deferred scene back to a regular package.

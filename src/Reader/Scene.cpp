@@ -7,6 +7,7 @@
 #include "Format/MeshEncoding.h"
 #include <limits>
 #include <type_traits>
+#include <bit>
 
 namespace zenasset
 {
@@ -114,7 +115,26 @@ public:
                 m_budget -= record->decodedBytes;
                 ResourceData               expanded;
                 std::span<const std::byte> canonical = data.bytes;
-                if (record->encoding != 0)
+                bool                       typedMesh = false;
+                if constexpr (std::endian::native == std::endian::little
+                              && (std::is_same_v<T, std::vector<Vertex>> || std::is_same_v<T, std::vector<uint32_t>>))
+                {
+                    if (record->encoding != 0)
+                    {
+                        SceneReadLimits meshLimits          = m_limits;
+                        meshLimits.maxRuntimeGeometryBytes -= m_geometryBytes;
+                        m_status =
+                            detail::DecodeMeshResourceTo(*record, data.bytes, meshLimits, m_budget, m_cancellation, value);
+                        typedMesh = true;
+                        if (m_status.Succeeded())
+                        {
+                            const uint64_t bytes  = value.size() * sizeof(typename T::value_type);
+                            m_geometryBytes      += bytes;
+                            m_budget             -= bytes;
+                        }
+                    }
+                }
+                if (record->encoding != 0 && !typedMesh)
                 {
                     expanded = detail::DecodeMeshResource(*record, data.bytes, m_limits, m_budget, m_cancellation);
                     m_status = expanded.status;
@@ -124,7 +144,8 @@ public:
                         m_budget  -= expanded.bytes.size();
                     }
                 }
-                if (m_status.Succeeded() && (type == ResourceType::VertexStream || type == ResourceType::IndexStream))
+                if (m_status.Succeeded() && !typedMesh
+                    && (type == ResourceType::VertexStream || type == ResourceType::IndexStream))
                 {
                     if (canonical.size() < 8 || canonical.size() - 8 > m_limits.maxRuntimeGeometryBytes - m_geometryBytes)
                     {
@@ -136,7 +157,7 @@ public:
                     }
                 }
                 const SceneReadLimits limits = detail::ResourceLimits(type, m_limits);
-                if (m_status.Succeeded())
+                if (m_status.Succeeded() && !typedMesh)
                 {
                     detail::SceneArchive<true> archive(canonical, nullptr, limits, m_budget, m_cancellation, record->version);
                     archive(value);

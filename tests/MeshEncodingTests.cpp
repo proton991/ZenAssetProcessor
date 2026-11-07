@@ -6,6 +6,8 @@
 #include <cstdio>
 #include <chrono>
 #include <filesystem>
+#include <bit>
+#include <cstring>
 
 namespace
 {
@@ -65,6 +67,31 @@ bool ExpectInvalid(const ResourceRecord& record, const std::vector<std::byte>& b
     return Check(!result.status.Succeeded() && result.bytes.empty(), message);
 }
 
+template <class T>
+bool TestTyped(const ResourceRecord& record, const std::vector<std::byte>& encoded, const std::vector<std::byte>& canonical)
+{
+    bool valid = true;
+    if constexpr (std::endian::native == std::endian::little)
+    {
+        std::vector<T> values;
+        Status         status  = detail::DecodeMeshResourceTo(record, encoded, {}, 32ull << 20, nullptr, values);
+        valid                 &= Check(status.Succeeded() && values.size() * sizeof(T) == canonical.size() - 8
+                                           && std::memcmp(values.data(), canonical.data() + 8, canonical.size() - 8) == 0,
+                                       "typed mesh decoding preserves every canonical bit");
+        status                 = detail::DecodeMeshResourceTo(record, encoded, {}, canonical.size() - 1, nullptr, values);
+        valid &= Check(status.code == StatusCode::ResourceLimit && values.empty(), "typed decode enforces allocation budget");
+        uint32_t           polls = 0;
+        const Cancellation cancelled(CancelAfterTwoBlocks, &polls);
+        status  = detail::DecodeMeshResourceTo(record, encoded, {}, 32ull << 20, &cancelled, values);
+        valid  &= Check(status.code == StatusCode::Cancelled && values.empty(), "typed decode discards partially decoded data");
+        std::vector<std::byte> corrupt = encoded;
+        corrupt.push_back(std::byte{0});
+        status  = detail::DecodeMeshResourceTo(record, corrupt, {}, 32ull << 20, nullptr, values);
+        valid  &= Check(status.code == StatusCode::InvalidData && values.empty(), "typed decode rejects trailing payload");
+    }
+    return valid;
+}
+
 bool TestStream(ResourceType type)
 {
     bool                              valid     = true;
@@ -79,6 +106,8 @@ bool TestStream(ResourceType type)
         const ResourceData   decoded  = detail::DecodeMeshResource(record, encoded.bytes, {}, 32ull << 20, nullptr);
         valid                        &= Check(decoded.status.Succeeded() && decoded.bytes == canonical,
                                               "block codec preserves every vertex bit and arbitrary index order");
+        valid &= type == ResourceType::VertexStream ? TestTyped<Vertex>(record, encoded.bytes, canonical)
+                                                    : TestTyped<uint32_t>(record, encoded.bytes, canonical);
         for (uint32_t offset : {0u, 4u, 8u, 16u, 24u, 28u})
         {
             std::vector<std::byte> corrupted = encoded.bytes;

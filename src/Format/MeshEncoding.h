@@ -37,4 +37,18 @@ ResourceData        DecodeMeshResource(const ResourceRecord&      record,
                                        const SceneReadLimits&     limits,
                                        uint64_t                   availableBytes,
                                        const Cancellation*        cancellation);
+// The little-endian typed path decodes into final scene storage without a second
+// complete canonical byte buffer. Layout is checked by the implementation.
+Status DecodeMeshResourceTo(const ResourceRecord&      record,
+                            std::span<const std::byte> encoded,
+                            const SceneReadLimits&     limits,
+                            uint64_t                   availableBytes,
+                            const Cancellation*        cancellation,
+                            std::vector<Vertex>&       vertices);
+Status DecodeMeshResourceTo(const ResourceRecord&      record,
+                            std::span<const std::byte> encoded,
+                            const SceneReadLimits&     limits,
+                            uint64_t                   availableBytes,
+                            const Cancellation*        cancellation,
+                            std::vector<uint32_t>&     indices);
 } // namespace zenasset::detail
