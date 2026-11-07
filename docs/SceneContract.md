@@ -82,11 +82,12 @@ RGBA8 linear/sRGB and BC7 linear/sRGB views may share storage. `linearSource`
 retains the source texture relation and `flatNormal` retains generated-flat-normal
 semantics. Unspecified sampling fields use explicit sentinel enum values.
 
-`ImagePixels::bytes` contains tightly packed base-level bytes. If authored mip
-data is present, `mips[0]` is also level zero, and subsequent entries halve each
-dimension down to at least one texel; a partial chain is permitted. This CPU
-shape preserves existing importer behavior. A cooked package may deduplicate
-the base level without changing its meaning. Compressed mip sizes round each
+`ImagePixels::bytes` contains tightly packed base-level bytes only when there is
+no explicit mip chain. Explicit chains own their base in `mips[0]` and leave
+`bytes` empty; subsequent entries halve each dimension down to at least one texel.
+Partial chains are permitted. Use `GetImageBaseBytes` rather than assuming a
+particular owner. Legacy callers may supply an equal duplicate base, which old
+package decoding verifies before releasing the redundant vector. Compressed mip sizes round each
 dimension up to whole blocks, including tiny mips. `GetImageLevelByteSize`
 rejects undefined/unknown formats, zero dimensions, and arithmetic overflow;
 callers must additionally apply allocation limits before allocating.

@@ -14,6 +14,7 @@ add_library(ZenAssetFormat STATIC
     src/Format/Version.cpp
     src/Format/Processing.cpp
     src/Format/Scene.cpp
+    src/Format/Assembly.cpp
     src/Format/Utf8.cpp
     src/Format/FileIO.cpp
     src/Format/Validation.cpp

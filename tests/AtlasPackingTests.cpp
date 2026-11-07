@@ -81,7 +81,8 @@ bool VerifyPixels(const std::vector<AtlasTileInput>& inputs, const AtlasPackResu
         valid &= Check(pixels.width % 4 == 0 && pixels.height % 4 == 0 && pixels.width <= options.maxPageDimension
                            && pixels.height <= options.maxPageDimension,
                        "page dimensions are bounded and block aligned");
-        valid &= Check(pixels.mips.size() == 1 && pixels.bytes == pixels.mips[0], "physical page has exactly one explicit mip");
+        valid &= Check(pixels.mips.size() == 1 && pixels.bytes.empty() && GetImageBaseBytes(pixels) == pixels.mips[0],
+                       "physical page has exactly one explicit mip");
         if (options.powerOfTwoPages)
         {
             valid &= Check(std::has_single_bit(pixels.width) && std::has_single_bit(pixels.height),
@@ -97,16 +98,17 @@ bool VerifyPixels(const std::vector<AtlasTileInput>& inputs, const AtlasPackResu
         valid &= Check(tile.mipCount == std::max(size_t(1), input.pixels->mips.size()), "every authored mip is retained");
         for (uint32_t level = 0; level < tile.mipCount; ++level)
         {
-            const AtlasMipRegion&       region   = result.mips[tile.firstMip + level];
-            const AtlasPage&            page     = result.pages[region.page];
-            const ImagePixels&          pixels   = *page.pixels;
-            const std::vector<uint8_t>& source   = input.pixels->mips.empty() ? input.pixels->bytes : input.pixels->mips[level];
-            bool                        exact    = true;
-            bool                        isolated = true;
-            valid &= Check(region.width == width && region.height == height && region.x % 4 == 0 && region.y % 4 == 0,
-                           "logical dimensions and aligned interior origin are retained");
-            valid &= Check(page.group == input.group && pixels.format == input.pixels->format,
-                           "incompatible group or color transfer never shares a page");
+            const AtlasMipRegion&       region = result.mips[tile.firstMip + level];
+            const AtlasPage&            page   = result.pages[region.page];
+            const ImagePixels&          pixels = *page.pixels;
+            const std::vector<uint8_t>& source =
+                input.pixels->mips.empty() ? GetImageBaseBytes(*input.pixels) : input.pixels->mips[level];
+            bool exact     = true;
+            bool isolated  = true;
+            valid         &= Check(region.width == width && region.height == height && region.x % 4 == 0 && region.y % 4 == 0,
+                                   "logical dimensions and aligned interior origin are retained");
+            valid         &= Check(page.group == input.group && pixels.format == input.pixels->format,
+                                   "incompatible group or color transfer never shares a page");
             for (uint32_t y = 0; y < Extent(height, options.gutter); ++y)
             {
                 for (uint32_t x = 0; x < Extent(width, options.gutter); ++x)
@@ -117,7 +119,8 @@ bool VerifyPixels(const std::vector<AtlasTileInput>& inputs, const AtlasPackResu
                     isolated &= occupied[region.page][pixel]++ == 0;
                     for (uint32_t channel = 0; channel < 4; ++channel)
                     {
-                        exact &= pixels.bytes[pixel * 4 + channel] == source[(size_t(sy) * width + sx) * 4 + channel];
+                        exact &=
+                            GetImageBaseBytes(pixels)[pixel * 4 + channel] == source[(size_t(sy) * width + sx) * 4 + channel];
                     }
                 }
             }
@@ -137,7 +140,7 @@ bool VerifyPixels(const std::vector<AtlasTileInput>& inputs, const AtlasPackResu
             {
                 for (uint32_t channel = 0; channel < 4; ++channel)
                 {
-                    zero &= pixels.bytes[pixel * 4 + channel] == 0;
+                    zero &= GetImageBaseBytes(pixels)[pixel * 4 + channel] == 0;
                 }
             }
         }
@@ -198,7 +201,7 @@ bool VerifySampling(const std::vector<AtlasTileInput>& inputs, const AtlasPackRe
                         const double                y         = v * region.height - 0.5;
                         const std::array<double, 4> reference = Sample(bytes, region.width, region.height, x, y);
                         const std::array<double, 4> packed =
-                            Sample(page.bytes, page.width, page.height, region.x + x, region.y + y);
+                            Sample(GetImageBaseBytes(page), page.width, page.height, region.x + x, region.y + y);
                         const double weight = step == 0 ? 0.37 : 0.63;
                         for (uint32_t channel = 0; channel < 4; ++channel)
                         {
@@ -377,11 +380,11 @@ bool PowerOfTwoPages()
             const ImagePixels& after  = *padded.pages[index].pixels;
             valid      &= Check(after.width == std::bit_ceil(before.width) && after.height == std::bit_ceil(before.height),
                                 "pages use the smallest power-of-two extents that contain their used rectangles");
-            extraBytes += 2 * (after.bytes.size() - before.bytes.size());
+            extraBytes += GetImageBaseBytes(after).size() - GetImageBaseBytes(before).size();
         }
         valid &= Check(extraBytes != 0 && padded.ownedBytes == cropped.ownedBytes + extraBytes
                            && Budget - paddedBudget == padded.ownedBytes,
-                       "both retained page copies charge all added padding and refund planning storage");
+                       "the single retained page copy charges added padding and refunds planning storage");
         std::reverse(inputs.begin(), inputs.end());
         uint64_t              repeatBudget = Budget;
         const AtlasPackResult repeat       = PackAtlasTiles(inputs, options, repeatBudget);

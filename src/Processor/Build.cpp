@@ -20,7 +20,7 @@
 
 namespace zenasset
 {
-namespace
+namespace detail
 {
 constexpr uint64_t      HashScratch = 4ull << 20;
 std::mutex              batchMutex;
@@ -170,6 +170,10 @@ Status CheckInputs(std::vector<SceneDependency>& inputs, bool fill, bool exactSt
     }
     return status;
 }
+} // namespace detail
+namespace
+{
+using namespace detail;
 struct Plan
 {
     SceneBuildJob                job;
@@ -716,6 +720,7 @@ std::string BuildSettingsKey(const SceneBuildJob& job, std::string_view format, 
 } // namespace detail
 uint64_t SceneBuildReservationBytes(const SceneBuildOptions& options)
 {
+    using namespace detail;
     uint64_t       bytes = 0;
     const uint64_t parts[]{options.importContext.maxSourceBytes,
                            options.importContext.maxDecodedImageBytes,
@@ -736,6 +741,7 @@ SceneBuildResult BuildSceneBatch(std::span<const SceneBuildJob> jobs,
                                  const SceneBuildOptions&       options,
                                  const Cancellation*            cancellation)
 {
+    using namespace detail;
     SceneBuildResult result;
     if (options.callbacks.progress != nullptr)
     {

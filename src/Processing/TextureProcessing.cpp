@@ -452,7 +452,14 @@ private:
                 const uint64_t temporary  = result.ownedBytes - result.pixelBytes;
                 result                    = {};
                 m_remaining              += temporary;
-                first                     = end;
+                if (Active() && m_scene.images[variant.sourceImage].pixels.use_count() == 1
+                    && (end == m_order.size() || m_variants[m_order[end]].sourceImage != variant.sourceImage))
+                {
+                    // All roles of this image now own their final pixels. Release
+                    // replaced source storage before processing the next image.
+                    m_scene.images[variant.sourceImage].pixels.reset();
+                }
+                first = end;
             }
             if (Active())
             {
@@ -497,8 +504,7 @@ private:
             TextureAsset&  texture = m_scene.textures[variant.targetTexture];
             texture.image          = ImageId{variant.targetImage};
             texture.format         = ViewFormat(m_images[variant.targetImage].pixels->format, variant.use.srgb);
-            if (texture.format == PixelFormat::BC5Unorm
-                && m_images[variant.targetImage].pixels != m_scene.images[variant.sourceImage].pixels)
+            if (texture.format == PixelFormat::BC5Unorm && variant.targetImage != m_originalImage[variant.sourceImage])
             {
                 texture.interpretation = TextureInterpretation::NormalXYPositiveZ;
             }

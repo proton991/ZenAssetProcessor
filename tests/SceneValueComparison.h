@@ -88,7 +88,9 @@ RECORD(MaterialAsset,
                                    FIELD(extension.pDiffuseTexture) FIELD(extension.diffuseFactor)
                                        FIELD(extension.specularFactor) FIELD(pbrWorkflows.metallicRoughness)
                                            FIELD(pbrWorkflows.specularGlossiness))
-RECORD(ImagePixels, FIELD(width) FIELD(height) FIELD(format) FIELD(bytes) FIELD(mips) FIELD(arrayLayers))
+RECORD(ImagePixels,
+       FIELD(width) FIELD(height) FIELD(format) FIELD(mips) FIELD(arrayLayers) equal &=
+       scene_test::Same(GetImageBaseBytes(a), GetImageBaseBytes(b));)
 RECORD(ImageAsset, FIELD(name) FIELD(pixels))
 RECORD(TextureAsset,
        FIELD(name) FIELD(image) FIELD(sampler) FIELD(linearSource) FIELD(format) FIELD(flatNormal) FIELD(interpretation)

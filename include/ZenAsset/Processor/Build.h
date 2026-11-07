@@ -1,5 +1,6 @@
 #pragma once
 #include "ZenAsset/Processor/Import.h"
+#include "ZenAsset/Format/Assembly.h"
 #include "ZenAsset/Processor/Write.h"
 #include <span>
 
@@ -48,6 +49,7 @@ struct SceneBuildOptions
     SceneReadLimits     limits;
     uint64_t            maxEncoderBytes{64ull << 20};
     bool                force{false};
+    bool                assemblyOnly{false};
     bool                durable{true};
     SceneBuildCallbacks callbacks;
 
@@ -78,12 +80,18 @@ struct SceneBuildResult
     Status status;
     // Always in request order; an unsuccessful job never returns a partial Scene.
     std::vector<SceneBuildJobResult> jobs;
+    std::string                      assemblyOutput;
+    bool                             assemblyPublished{false};
+    bool                             sourceFreshnessChecked{true};
 };
 struct SceneBuildManifest
 {
     Status                     status;
     std::string                outputDirectory;
     std::vector<SceneBuildJob> jobs;
+    uint32_t                   version{1};
+    std::string                assemblyOutput;
+    SceneAssembly              assembly;
 };
 
 // Admission reservation: source + decoded image + max(glTF/FBX geometry, OBJ
@@ -92,7 +100,8 @@ struct SceneBuildManifest
 // canonical/deformation storage and conversion scratch, not parser/codec-private
 // allocations or allocator bookkeeping. This is not a process RSS bound.
 uint64_t SceneBuildReservationBytes(const SceneBuildOptions& options);
-// Strict JSON version 1. Relative source/output-directory paths use the manifest's
+// Strict JSON versions 1 (independent batch) and 2 (native assembly).
+// Relative source/output-directory paths use the manifest's
 // parent. Every output remains a relative path within that directory.
 SceneBuildManifest ReadSceneBuildManifest(const std::string&       path,
                                           const SceneBuildOptions& limits       = {},
@@ -106,4 +115,7 @@ SceneBuildManifest ReadSceneBuildManifest(const std::string&       path,
 SceneBuildResult BuildSceneBatch(std::span<const SceneBuildJob> jobs,
                                  const SceneBuildOptions&       options,
                                  const Cancellation*            cancellation = nullptr);
+SceneBuildResult BuildSceneAssembly(const SceneBuildManifest& manifest,
+                                    const SceneBuildOptions&  options,
+                                    const Cancellation*       cancellation = nullptr);
 } // namespace zenasset

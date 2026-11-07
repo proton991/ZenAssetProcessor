@@ -5,6 +5,8 @@
 #include "ZenAsset/Processor/Build.h"
 #include "ZenAsset/Processor/Write.h"
 #include "ZenAsset/Reader/Scene.h"
+#include "ZenAsset/Reader/Assembly.h"
+#include "ZenAsset/Processor/Assembly.h"
 #include <atomic>
 #include <array>
 #include <algorithm>
@@ -466,14 +468,70 @@ void PrintSceneSummary(const Scene& scene)
 
 Status Validate(const Arguments& arguments, const Cancellation& cancellation)
 {
-    const SceneReadResult result = ReadScene(arguments.input, arguments.limits, &cancellation);
-    if (result.status.Succeeded())
+    const PackageResult package  = OpenPackage(arguments.input, arguments.limits.package, &cancellation);
+    Status              status   = package.status;
+    bool                assembly = false;
+    if (status.Succeeded())
     {
-        std::cout << "{\"valid\":true,";
-        PrintSceneSummary(*result.scene);
-        std::cout << "}\n";
+        for (const ResourceRecord& record : package.package->Resources())
+        {
+            assembly = assembly || record.type == ResourceType::Assembly;
+        }
     }
-    return result.status;
+    if (status.Succeeded() && assembly)
+    {
+        const AssemblyReadResult result = ReadAssembly(arguments.input, arguments.limits, &cancellation);
+        status                          = result.status;
+        if (status.Succeeded())
+        {
+            status = VerifyAssemblyDependencies(arguments.input, *result.assembly, arguments.limits.package, &cancellation);
+        }
+        if (status.Succeeded())
+        {
+            const std::filesystem::path parent = std::filesystem::u8path(arguments.input).parent_path();
+            for (const AssemblyModel& model : result.assembly->models)
+            {
+                if (status.Succeeded())
+                {
+                    const std::u8string   path  = (parent / std::filesystem::u8path(model.path)).generic_u8string();
+                    const SceneReadResult scene = ReadScene(
+                        std::string(reinterpret_cast<const char*>(path.data()), path.size()), arguments.limits, &cancellation);
+                    status = scene.status;
+                    AssemblyModel summary;
+                    if (status.Succeeded())
+                    {
+                        status = SummarizeAssemblyModel(*scene.scene, summary);
+                    }
+                    if (status.Succeeded()
+                        && (summary.counts != model.counts || summary.bounds != model.bounds
+                            || summary.hasBounds != model.hasBounds || summary.texCoordSets != model.texCoordSets))
+                    {
+                        status = {StatusCode::InvalidData, "Assembly model summary does not match package"};
+                    }
+                }
+            }
+        }
+        if (status.Succeeded())
+        {
+            const AssemblyCounts& counts = result.assembly->counts;
+            std::cout << "{\"valid\":true,\"models\":" << result.assembly->models.size()
+                      << ",\"instances\":" << result.assembly->instances.size() << ",\"vertices\":" << counts.vertices
+                      << ",\"triangles\":" << counts.triangles << ",\"nodes\":" << counts.nodes
+                      << ",\"light_nodes\":" << counts.lightNodes << "}\n";
+        }
+    }
+    else if (status.Succeeded())
+    {
+        const SceneReadResult result = ReadScene(*package.package, arguments.limits, &cancellation);
+        status                       = result.status;
+        if (status.Succeeded())
+        {
+            std::cout << "{\"valid\":true,";
+            PrintSceneSummary(*result.scene);
+            std::cout << "}\n";
+        }
+    }
+    return status;
 }
 
 void PrintDiagnostics(const std::vector<Diagnostic>& diagnostics)
@@ -523,23 +581,30 @@ Status Build(const std::vector<std::string>& values, const Cancellation& cancell
             {
                 options.outputDirectory = value;
             }
-            else if (option == "--force")
+            else if (option == "--force" || option == "--assembly-only")
             {
                 if (value == "on" || value == "off")
                 {
-                    options.force = value == "on";
+                    if (option == "--force")
+                    {
+                        options.force = value == "on";
+                    }
+                    else
+                    {
+                        options.assemblyOnly = value == "on";
+                    }
                 }
                 else
                 {
-                    status = {StatusCode::InvalidArgument, "--force must be on or off"};
+                    status = {StatusCode::InvalidArgument, "Build switches must be on or off"};
                 }
             }
-            else if (option == "--jobs" || option == "--memory-budget" || option == "--job-memory"
-                     || option == "--manifest-budget")
+            else if (option == "--jobs" || option == "--import-workers" || option == "--memory-budget"
+                     || option == "--job-memory" || option == "--manifest-budget")
             {
                 uint64_t number = 0;
                 status          = ParseUnsigned(value, number);
-                if (status.Succeeded() && option == "--jobs")
+                if (status.Succeeded() && (option == "--jobs" || option == "--import-workers"))
                 {
                     if (number == 0 || number > 64)
                     {
@@ -547,7 +612,14 @@ Status Build(const std::vector<std::string>& values, const Cancellation& cancell
                     }
                     else
                     {
-                        options.workerCount = static_cast<uint32_t>(number);
+                        if (option == "--jobs")
+                        {
+                            options.workerCount = static_cast<uint32_t>(number);
+                        }
+                        else
+                        {
+                            options.importContext.workerCount = static_cast<uint32_t>(number);
+                        }
                     }
                 }
                 else if (status.Succeeded() && option == "--memory-budget")
@@ -597,9 +669,29 @@ Status Build(const std::vector<std::string>& values, const Cancellation& cancell
             {
                 options.outputDirectory = manifest.outputDirectory;
             }
-            const SceneBuildResult result = BuildSceneBatch(manifest.jobs, options, &cancellation);
-            status                        = result.status;
-            std::cout << "{\"status\":" << static_cast<uint32_t>(result.status.code) << ",\"jobs\":[";
+            SceneBuildResult result;
+            if (manifest.version == 2)
+            {
+                result = BuildSceneAssembly(manifest, options, &cancellation);
+            }
+            else if (options.assemblyOnly)
+            {
+                result.status = {StatusCode::InvalidArgument, "--assembly-only requires a version 2 manifest"};
+            }
+            else
+            {
+                result = BuildSceneBatch(manifest.jobs, options, &cancellation);
+            }
+            status = result.status;
+            std::cout << "{\"status\":" << static_cast<uint32_t>(result.status.code);
+            if (manifest.version == 2)
+            {
+                std::cout << ",\"assembly\":";
+                JsonString(std::cout, result.assemblyOutput);
+                std::cout << ",\"published\":" << (result.assemblyPublished ? "true" : "false")
+                          << ",\"source_freshness_checked\":" << (result.sourceFreshnessChecked ? "true" : "false");
+            }
+            std::cout << ",\"jobs\":[";
             size_t index = 0;
             for (const SceneBuildJobResult& job : result.jobs)
             {
@@ -630,11 +722,11 @@ Status Cook(const Arguments& arguments)
 {
     Status             status;
     SceneImportRequest request;
-    request.path     = arguments.input;
-    request.settings = arguments.settings;
-    request.control  = std::make_shared<SceneImportControl>(SceneImportCallbacks{nullptr, &Interrupted, nullptr});
-    const SceneImportResult imported = ImportScene(request, arguments.context);
-    status                           = {imported.status, imported.error};
+    request.path               = arguments.input;
+    request.settings           = arguments.settings;
+    request.control            = std::make_shared<SceneImportControl>(SceneImportCallbacks{nullptr, &Interrupted, nullptr});
+    SceneImportResult imported = ImportScene(request, arguments.context);
+    status                     = {imported.status, imported.error};
     PrintDiagnostics(imported.diagnostics);
     SceneCookResult cooked;
     if (status.Succeeded())
@@ -645,6 +737,7 @@ Status Cook(const Arguments& arguments)
         cooked           = CookScene(imported.asset, options, request.control.get());
         status           = cooked.status;
         PrintDiagnostics(cooked.diagnostics);
+        imported.asset.reset();
     }
     if (status.Succeeded())
     {
@@ -677,6 +770,50 @@ Status Cook(const Arguments& arguments)
     return status;
 }
 
+Status CleanAssemblies(const std::vector<std::string>& values, const Cancellation& cancellation)
+{
+    Status                 status;
+    AssemblyCleanupOptions options;
+    if (values.size() != 3 && values.size() != 5)
+    {
+        status = {StatusCode::InvalidArgument, "clean requires DIRECTORY [--dry-run on|off]"};
+    }
+    if (status.Succeeded() && values.size() == 5)
+    {
+        if (values[3] != "--dry-run" || (values[4] != "on" && values[4] != "off"))
+        {
+            status = {StatusCode::InvalidArgument, "clean accepts only --dry-run on|off"};
+        }
+        else
+        {
+            options.dryRun = values[4] == "on";
+        }
+    }
+    if (status.Succeeded())
+    {
+        const AssemblyCleanupResult result = CleanupAssemblies(values[2], options, &cancellation);
+        status                             = result.status;
+        std::cout << "{\"status\":" << static_cast<uint32_t>(status.code)
+                  << ",\"dry_run\":" << (result.dryRun ? "true" : "false") << ",\"candidate_bytes\":" << result.candidateBytes
+                  << ",\"candidates\":[";
+        size_t index = 0;
+        for (const std::string& path : result.candidates)
+        {
+            std::cout << (index++ == 0 ? "" : ",");
+            JsonString(std::cout, path);
+        }
+        std::cout << "],\"deleted\":[";
+        index = 0;
+        for (const std::string& path : result.deleted)
+        {
+            std::cout << (index++ == 0 ? "" : ",");
+            JsonString(std::cout, path);
+        }
+        std::cout << "]}\n";
+    }
+    return status;
+}
+
 void Help()
 {
     std::cout
@@ -698,8 +835,11 @@ void Help()
            "zenassetc inspect PACKAGE [--max-file-bytes BYTES]\n"
            "zenassetc validate PACKAGE [--allocation-budget BYTES] [--max-file-bytes BYTES] [--codec-budget BYTES]\n"
            "zenassetc --version\n"
+           "zenassetc clean DIRECTORY [--dry-run on|off] (default on)\n"
            "zenassetc build MANIFEST [--output-dir DIR] [--jobs 1..64] [--force off|on]\n"
            "               [--memory-budget BYTES] [--job-memory BYTES] [--manifest-budget BYTES]\n"
+           "               [--import-workers 1..64]\n"
+           "               [--assembly-only off|on] (version 2; source freshness is not checked)\n"
            "Successful commands print JSON to stdout; diagnostics go to stderr. Ctrl+C cancels cooperatively.\n";
 }
 
@@ -715,6 +855,11 @@ int Run(const std::vector<std::string>& values)
     {
         std::cout << "ZenAsset " << LibraryVersion() << " schema=" << PackageSchemaVersion << " processor=" << ProcessorVersion
                   << " build=" << LibraryBuildFingerprint() << '\n';
+    }
+    else if (values.size() > 1 && values[1] == "clean")
+    {
+        const Cancellation cancellation(&Interrupted);
+        status = CleanAssemblies(values, cancellation);
     }
     else if (values.size() > 1 && values[1] == "build")
     {

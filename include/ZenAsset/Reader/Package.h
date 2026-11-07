@@ -1,6 +1,7 @@
 #pragma once
 #include "ZenAsset/Format/Status.h"
 #include "ZenAsset/Format/Compression.h"
+#include "ZenAsset/Format/PackageIdentity.h"
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -32,7 +33,8 @@ enum class ResourceType : uint32_t
     MaterialVariants,
     MaterialVariant,
     TextureCoordinates,
-    SourceDocument
+    SourceDocument,
+    Assembly
 };
 
 inline constexpr uint32_t RequiredResource = 1;
@@ -86,6 +88,7 @@ public:
     Package& operator=(const Package&) = delete;
 
     std::span<const ResourceRecord> Resources() const;
+    PackageIdentity                 Identity() const;
     const ResourceRecord*           Find(uint64_t id) const;
     ResourceData Read(uint64_t id, const Cancellation* cancellation = nullptr, uint64_t maxScratchBytes = UINT64_MAX) const;
     Status       ValidatePayloads(const Cancellation* cancellation = nullptr) const;

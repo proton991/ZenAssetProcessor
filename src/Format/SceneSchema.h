@@ -216,10 +216,36 @@ template <class Archive> void Fields(Archive& ar, typename Archive::template Val
 
 template <class Archive> void Fields(Archive& ar, typename Archive::template Value<ImagePixels>& v)
 {
-    ar(v.width, v.height, v.format, v.bytes, v.mips);
-    if (ar.Version() >= 2)
+    ar(v.width, v.height, v.format);
+    if (ar.Version() >= 3)
     {
-        ar(v.arrayLayers);
+        ar(v.mips, v.arrayLayers);
+        if (v.mips.empty())
+        {
+            ar.Fail(StatusCode::InvalidData, "Image v3 requires explicit mip storage");
+        }
+    }
+    else
+    {
+        ar(v.bytes, v.mips);
+        if (ar.Version() >= 2)
+        {
+            ar(v.arrayLayers);
+        }
+        if constexpr (Archive::Reading)
+        {
+            if (!v.mips.empty())
+            {
+                if (v.bytes != v.mips[0])
+                {
+                    ar.Fail(StatusCode::InvalidData, "Legacy image base differs from mip zero");
+                }
+                else
+                {
+                    std::vector<uint8_t>().swap(v.bytes);
+                }
+            }
+        }
     }
 }
 

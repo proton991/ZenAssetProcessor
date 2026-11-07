@@ -84,14 +84,18 @@ struct ImagePixels
     uint32_t    width{0};
     uint32_t    height{0};
     PixelFormat format{PixelFormat::RGBA8Unorm};
-    // Base level, tightly packed in format. When authored mips are present,
-    // mips[0] is also the base level; mips may be a partial chain.
+    // Base-only storage when mips is empty. Explicit mip chains own level zero
+    // in mips[0], with bytes empty. Legacy callers may supply an identical
+    // duplicate base in bytes; validation rejects mismatched duplicates.
     std::vector<uint8_t>              bytes;
     std::vector<std::vector<uint8_t>> mips;
     // Each level contains tightly packed layers in ascending layer order. Array
     // pages require explicit mips, including level zero; no implicit generation.
     uint32_t arrayLayers{1};
 };
+
+// The authoritative base level, including all array layers, without copying.
+const std::vector<uint8_t>& GetImageBaseBytes(const ImagePixels& pixels);
 
 // Select one layer without copying or decoding it. Failure clears the view.
 // Validates the selected level's complete storage size, not block contents.

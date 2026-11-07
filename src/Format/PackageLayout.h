@@ -18,7 +18,7 @@ inline bool SupportedResourceVersion(ResourceType type, uint32_t version)
 {
     return version == 1 || (type == ResourceType::Metadata && version >= 2 && version <= 8)
         || (type == ResourceType::Texture && version >= 2 && version <= 4)
-        || ((type == ResourceType::Image || type == ResourceType::Environment) && version == 2);
+        || (type == ResourceType::Image && version >= 2 && version <= 3) || (type == ResourceType::Environment && version == 2);
 }
 
 inline uint32_t Read32(const uint8_t* bytes)

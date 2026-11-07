@@ -43,14 +43,21 @@ def scene_images(resources):
         if kind == 13:
             name = f.string()
             width, height, fmt = f.unpack("3I")
-            base = bytes_field(f)
+            version = getattr(data, "version", 1)
+            stored_base = bytes_field(f) if version < 3 else b""
             mips = [bytes_field(f) for _ in range(f.unpack("Q"))]
+            layers = f.unpack("I") if version >= 2 else 1
             f.finish()
-            if mips and mips[0] != base:
+            if version >= 3 and not mips:
+                raise ValueError("Image v3 requires explicit mips")
+            if layers != 1:
+                raise ValueError("This per-texture audit requires single-layer images")
+            if version < 3 and mips and mips[0] != stored_base:
                 raise ValueError("Base and mip[0] disagree")
+            base = mips[0] if mips else stored_base
             images[index] = dict(name=name, width=width, height=height, format=fmt, base=base,
                                  mips=mips or [base], authored_mip_count=len(mips),
-                                 owned_bytes=len(base) + sum(map(len, mips)))
+                                 owned_bytes=len(stored_base) + sum(map(len, mips)))
         elif kind == 4:
             name = f.string()
             image, sampler, linear_source, fmt = f.unpack("4I")

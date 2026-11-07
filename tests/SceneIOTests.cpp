@@ -6,6 +6,7 @@
 #include "ZenAsset/Format/Validation.h"
 #include "Format/PackageLayout.h"
 #include "Format/SceneResources.h"
+#include "Format/SceneArchive.h"
 #include "SceneValueComparison.h"
 #include <cstdio>
 #include <chrono>
@@ -214,7 +215,7 @@ bool CheckContents(const Scene& decoded, const Scene& expected)
     valid      &= Check(decoded.vertexTexCoordSets == expected.vertexTexCoordSets && decoded.vertexTexCoords[2][2] == Vec2(2, 3)
                             && decoded.meshes[0].primitives[0].influences[2][0].weight == 1.0f,
                         "Geometry streams and full influences must round-trip");
-    valid      &= Check(decoded.images[0].pixels->bytes == expected.images[0].pixels->bytes
+    valid      &= Check(GetImageBaseBytes(*decoded.images[0].pixels) == GetImageBaseBytes(*expected.images[0].pixels)
                             && decoded.images[0].pixels->mips[1] == expected.images[0].pixels->mips[1],
                         "Pixels and authored mips must round-trip");
     valid      &= Check(decoded.materials[0].features.iridescence == 0.625f
@@ -402,10 +403,7 @@ bool TestBlockModeValidation(const std::filesystem::path& directory)
         const size_t               entry     = EntryOffset(original, ResourceType::Image);
         const size_t               payload   = static_cast<size_t>(detail::Read64(original.data() + entry + 24));
         const size_t               nameBytes = static_cast<size_t>(detail::Read64(original.data() + payload));
-        const size_t               baseCount = payload + 8 + nameBytes + 12;
-        const size_t               base      = baseCount + 8;
-        const size_t               baseBytes = static_cast<size_t>(detail::Read64(original.data() + baseCount));
-        size_t                     cursor    = base + baseBytes + 8; // mip vector count.
+        size_t                     cursor    = payload + 8 + nameBytes + 12 + 8; // mip vector count.
         std::array<size_t, 3>      mips{};
         for (size_t level = 0; level < mips.size(); ++level)
         {
@@ -414,7 +412,7 @@ bool TestBlockModeValidation(const std::filesystem::path& directory)
             cursor             = mips[level] + count;
         }
         std::vector<uint8_t> changed = original;
-        changed[base + 16] = changed[mips[0] + 16] = 0;
+        changed[mips[0] + 16]        = 0;
         RepairChecksums(changed, entry);
         valid                    &= Check(SaveBytes(bad, changed), "Can write reserved nonfirst block fixture");
         SceneReadResult rejected  = ReadScene(bad.string());
@@ -741,11 +739,11 @@ bool TestSpatialRegions(const std::filesystem::path& directory)
                     for (uint32_t bound : {128u, 4u, 1u})
                     {
                         ImagePreviewOptions previewOptions;
-                        previewOptions.maxDimension = bound;
-                        const ImagePreviewResult preview =
-                            MakeImagePreview({texture.format, page.width, page.height, std::as_bytes(std::span(page.bytes)),
-                                              texture.interpretation, texture.atlasRegion},
-                                             previewOptions);
+                        previewOptions.maxDimension      = bound;
+                        const ImagePreviewResult preview = MakeImagePreview({texture.format, page.width, page.height,
+                                                                             std::as_bytes(std::span(GetImageBaseBytes(page))),
+                                                                             texture.interpretation, texture.atlasRegion},
+                                                                            previewOptions);
                         const ImagePreviewResult reference = MakeImagePreview(
                             {texture.format, original.width, original.height, std::as_bytes(std::span(original.bytes))},
                             previewOptions);
@@ -880,6 +878,57 @@ bool TestCorpus(const std::filesystem::path& directory, const char* listPath)
     std::printf("%u corpus scenes\n", count);
     return valid;
 }
+bool TestMipOwnershipSchema()
+{
+    ImagePixels source;
+    source.width  = 4;
+    source.height = 4;
+    source.bytes.assign(64, 127);
+    source.mips = {source.bytes, std::vector<uint8_t>(16, 63)};
+    SceneReadLimits limits;
+    bool            valid         = true;
+    size_t          previousBytes = 0;
+    for (uint32_t version = 1; version <= 3; ++version)
+    {
+        uint64_t                    budget = 4096;
+        detail::SceneArchive<false> sizing({}, nullptr, limits, budget, nullptr, version);
+        sizing(source);
+        valid &= Check(sizing.Finish().Succeeded(), "image schema sizing succeeds");
+        std::vector<std::byte>      bytes(sizing.ByteSize());
+        detail::SceneArchive<false> writer({}, &bytes, limits, budget, nullptr, version);
+        writer(source);
+        ImagePixels                decoded;
+        detail::SceneArchive<true> reader(bytes, nullptr, limits, budget, nullptr, version);
+        reader(decoded);
+        valid &= Check(writer.Finish().Succeeded() && reader.Finish().Succeeded() && decoded.bytes.empty()
+                           && decoded.mips == source.mips,
+                       "old and new image schemas decode with one authoritative base mip");
+        if (version == 3)
+        {
+            valid                                 &= Check(previousBytes - bytes.size() == source.bytes.size() + 8,
+                                                           "image v3 removes the complete duplicate base vector from storage");
+            uint64_t                   tinyBudget  = 1;
+            detail::SceneArchive<true> limited(bytes, nullptr, limits, tinyBudget, nullptr, version);
+            limited(decoded);
+            valid &= Check(limited.Finish().code == StatusCode::ResourceLimit, "image v3 allocations obey the reader budget");
+        }
+        previousBytes = bytes.size();
+    }
+    source.bytes[0]                    ^= 1;
+    uint64_t                    budget  = 4096;
+    detail::SceneArchive<false> sizing({}, nullptr, limits, budget, nullptr, 1);
+    sizing(source);
+    std::vector<std::byte>      bytes(sizing.ByteSize());
+    detail::SceneArchive<false> writer({}, &bytes, limits, budget, nullptr, 1);
+    writer(source);
+    ImagePixels                decoded;
+    detail::SceneArchive<true> reader(bytes, nullptr, limits, budget, nullptr, 1);
+    reader(decoded);
+    valid &= Check(reader.Finish().code == StatusCode::InvalidData,
+                   "legacy mismatched duplicate base is rejected before normalization");
+    return valid;
+}
+
 } // namespace
 
 int main(int argc, char** argv)
@@ -890,6 +939,7 @@ int main(int argc, char** argv)
     std::filesystem::create_directories(directory, error);
     bool valid  = Check(!error, "Cannot create test output directory");
     valid      &= TestRoundTrip(directory);
+    valid      &= TestMipOwnershipSchema();
     valid      &= TestBlockModeValidation(directory);
     valid      &= TestTextureInterpretation(directory);
     valid      &= TestEnvironmentEncoding(directory);

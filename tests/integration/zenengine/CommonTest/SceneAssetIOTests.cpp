@@ -1113,7 +1113,8 @@ TEST(SceneAssetCache, CookedSourceMatchesExplicitPackageAndCachedScene)
                     || image.pixels->format == asset::Format::BC7_SRGB_BLOCK)
                 {
                     ++encodedImages;
-                    EXPECT_EQ(image.pixels->bytes.size(), 16u);
+                    EXPECT_TRUE(image.pixels->bytes.empty());
+                    EXPECT_EQ(asset::GetImageBaseBytes(*image.pixels).size(), 16u);
                     ASSERT_EQ(image.pixels->mips.size(), 1u);
                     EXPECT_EQ(image.pixels->mips.front().size(), 16u);
                 }

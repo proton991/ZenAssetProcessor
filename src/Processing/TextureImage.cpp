@@ -1411,7 +1411,7 @@ Status ReadLevels(const ImagePixels& input, ImageScratch& scratch, uint32_t& cou
     uint32_t height = input.height;
     count           = input.mips.empty() ? 1 : static_cast<uint32_t>(input.mips.size());
     if (input.mips.size() > scratch.levels.size() || width == 0 || height == 0
-        || (!input.mips.empty() && input.bytes.size() != input.mips[0].size()))
+        || (!input.mips.empty() && !input.bytes.empty() && input.bytes.size() != input.mips[0].size()))
     {
         status = {StatusCode::InvalidData, "Invalid texture mip ownership or extent"};
     }
@@ -1433,7 +1433,7 @@ Status ReadLevels(const ImagePixels& input, ImageScratch& scratch, uint32_t& cou
             height                       = std::max(1u, height / 2);
         }
     }
-    if (status.Succeeded() && !input.mips.empty())
+    if (status.Succeeded() && !input.mips.empty() && !input.bytes.empty())
     {
         const size_t stride = size_t(input.width) * 4;
         for (uint32_t row = 0; status.Succeeded() && row < input.height; ++row)
@@ -1866,14 +1866,13 @@ TextureImageResult MakeCandidate(std::shared_ptr<const ImagePixels> input,
         uint64_t bytes = 0;
         if (result.status.Succeeded()
             && (!GetImageLevelByteSize(output->format, scratch.levels[level].width, scratch.levels[level].height, bytes)
-                || bytes > SIZE_MAX || (level == 0 && bytes > UINT64_MAX / 2)
-                || !budget.Reserve(bytes + (level == 0 ? bytes : 0))))
+                || bytes > SIZE_MAX || !budget.Reserve(bytes)))
         {
             result.status = {StatusCode::ResourceLimit, "Texture output pixels exceed budget"};
         }
         if (result.status.Succeeded())
         {
-            persistent += bytes + (level == 0 ? bytes : 0);
+            persistent += bytes;
             output->mips[level].resize(static_cast<size_t>(bytes));
             TextureMipQuality quality;
             quality.width              = scratch.levels[level].width;
@@ -1896,10 +1895,6 @@ TextureImageResult MakeCandidate(std::shared_ptr<const ImagePixels> input,
                 std::copy(scratch.levels[level].bytes.begin(), scratch.levels[level].bytes.end(), output->mips[level].begin());
             }
             result.metrics.push_back(quality);
-            if (level == 0)
-            {
-                output->bytes = output->mips[0];
-            }
         }
     }
     if (result.status.Succeeded() && !result.reason.empty())

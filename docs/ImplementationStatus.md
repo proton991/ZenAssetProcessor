@@ -1,12 +1,37 @@
 # Processor implementation status
 
+## Multi-model processor checkpoint
+
+The processor now builds native `.zenscene` assemblies referencing independently
+cooked `.zenasset` models. Version 2 manifests preserve model-local graphs,
+instance placement and light policy; builds process one model at a time, reuse
+validated unchanged packages, and publish the assembly atomically last. Source-free
+placement changes, metadata-only assembly reads, sequential dependency validation,
+and explicit dry-run-first cleanup are implemented. See [assembly builds](AssemblyBuilds.md)
+and the [native assembly contract](SceneAssemblies.md).
+
+The import-to-cook path can transfer unique scene ownership, and image resource
+schema 3 stores mip zero once. The reader still accepts earlier image schemas;
+older readers reject the new required assembly/image schemas. These changes are
+processor-scoped. ZenEngine assembly loading, GPU ownership, rendering and light
+evaluation remain deferred integration work.
+
+The Sponza main scene and `pkg_*` add-ons have inventory, baseline, texture
+preflight, manifest-generation and assembly measurement tools. See the
+[reproduction commands](../tools/validation/README.md#multi-model-sponza-workflow)
+and [multi-model verification](MultiModelVerification.md) for the measured
+configuration, compiler/input identities, results and limitations. Historical
+performance and engine evidence below describe their own earlier checkpoints.
+
+## Historical processor checkpoint
+
 Checkpoint: 25 October 2026. The processor-scoped implementation and verification
 work is complete for the Windows x64 configuration recorded below. The subsequent
 [ZenEngine development integration](../../ZenEngine/Doc/ZenAssetProcessorIntegrationVerification.md)
 passes Debug/Release consumption and focused Vulkan checks. Broader rendering and
 release acceptance remain separate gates; the complete engine plan is not closed.
 
-The latest tested production fingerprint is
+The production fingerprint at that checkpoint is
 `8976c628910f91106f0055657a85e9ace6afa3efaf6748639b6cd7804ca04a4f`.
 Individual historical reports identify their own source/SDK fingerprints.
 

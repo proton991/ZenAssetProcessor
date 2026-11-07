@@ -193,7 +193,8 @@ private:
         uint32_t width  = pixels.width;
         uint32_t height = pixels.height;
         uint64_t bytes  = 0;
-        if (Active() && (!GetImageLevelByteSize(pixels.format, width, height, bytes) || pixels.bytes.size() != bytes))
+        if (Active()
+            && (!GetImageLevelByteSize(pixels.format, width, height, bytes) || GetImageBaseBytes(pixels).size() != bytes))
         {
             m_result.status = {StatusCode::InvalidData, "Atlas base image byte count is invalid"};
         }
@@ -211,7 +212,7 @@ private:
             width  = std::max(1u, width / 2);
             height = std::max(1u, height / 2);
         }
-        if (Active() && !pixels.mips.empty() && pixels.bytes != pixels.mips[0])
+        if (Active() && !pixels.mips.empty() && !pixels.bytes.empty() && pixels.bytes != pixels.mips[0])
         {
             m_result.status = {StatusCode::InvalidData, "Atlas base image differs from its first explicit mip"};
         }
@@ -355,7 +356,7 @@ private:
             const uint32_t    width     = m_options.powerOfTwoPages ? std::bit_ceil(layout.width) : layout.width;
             const uint32_t    height    = m_options.powerOfTwoPages ? std::bit_ceil(layout.height) : layout.height;
             const uint64_t    byteCount = uint64_t(width) * height * 4;
-            if (Reserve(1, sizeof(ImagePixels) + sizeof(std::vector<uint8_t>), true) && Reserve(byteCount, 2, true))
+            if (Reserve(1, sizeof(ImagePixels) + sizeof(std::vector<uint8_t>), true) && Reserve(byteCount, 1, true))
             {
                 std::shared_ptr<ImagePixels> page = std::make_shared<ImagePixels>();
                 page->width                       = width;
@@ -372,7 +373,7 @@ private:
                 if (Active())
                 {
                     page->mips.resize(1);
-                    page->mips[0] = page->bytes;
+                    page->mips[0] = std::move(page->bytes);
                     m_result.pages.push_back({layout.group, std::move(page), m_owned - before});
                 }
             }

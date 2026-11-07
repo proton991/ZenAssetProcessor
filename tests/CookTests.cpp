@@ -1,4 +1,5 @@
 #include "ZenAsset/Processor/Cook.h"
+#include "Processor/CookInternal.h"
 #include "ZenAsset/Processor/Import.h"
 #include "ZenAsset/Processor/Write.h"
 #include "Processing/SceneStorage.h"
@@ -48,6 +49,30 @@ std::shared_ptr<const Scene> MakeScene()
     pixels->mips.push_back(pixels->bytes);
     scene->images.push_back({"shared pixels", pixels});
     return scene;
+}
+
+bool CheckConsumedCooking()
+{
+    std::shared_ptr<const Scene> input    = MakeScene();
+    const Scene*                 original = input.get();
+    SceneCookOptions             options;
+    options.settings.geometry.optimizeVertexFetch = true;
+    SceneCookResult cooked                        = detail::ConsumeCookScene(std::move(input), options);
+    bool            valid                         = Check(cooked.status.Succeeded() && !input && cooked.scene.get() == original,
+                                                          "consuming an exclusive imported scene reuses its geometry owner");
+    input                                         = MakeScene();
+    const std::shared_ptr<const Scene> retained   = input;
+    const Scene                        snapshot   = *retained;
+    cooked                                        = detail::ConsumeCookScene(std::move(input), options);
+    valid &= Check(cooked.status.Succeeded() && cooked.scene != retained && scene_test::Same(*retained, snapshot),
+                   "a shared imported scene is copied without modifying another owner");
+    input  = MakeScene();
+    const std::weak_ptr<const Scene> discarded  = input;
+    options.limits.maxAllocationBytes           = 1;
+    cooked                                      = detail::ConsumeCookScene(std::move(input), options);
+    valid                                      &= Check(!cooked.status.Succeeded() && !cooked.scene && discarded.expired(),
+                                                        "failed consuming cook releases input and exposes no partial result");
+    return valid;
 }
 
 bool CheckCooking(const std::filesystem::path& path)
@@ -199,8 +224,9 @@ bool CheckTextureCooking(const std::filesystem::path& path)
         if (cooked.scene->images.size() == 1 && cooked.scene->textures.size() == 1)
         {
             const ImagePixels& output = *cooked.scene->images[0].pixels;
-            valid &= Check(output.format == PixelFormat::BC7Srgb && output.mips.size() == 6 && output.mips[0] == output.bytes
-                               && output.mips.back().size() == 16 && cooked.scene->textures[0].format == PixelFormat::BC7Srgb,
+            valid &= Check(output.format == PixelFormat::BC7Srgb && output.mips.size() == 6 && output.bytes.empty()
+                               && output.mips[0] == GetImageBaseBytes(output) && output.mips.back().size() == 16
+                               && cooked.scene->textures[0].format == PixelFormat::BC7Srgb,
                            "texture-only cooking creates BC7 storage with a complete offline mip chain and matching view");
         }
         SceneWriteOptions write;
@@ -459,6 +485,7 @@ int main(int argc, char** argv)
     const std::filesystem::path path =
         std::filesystem::temp_directory_path() / ("zenasset-cook-" + std::to_string(tick) + ".zenasset");
     bool valid  = CheckCooking(path);
+    valid      &= CheckConsumedCooking();
     valid      &= CheckTextureCooking(path);
     valid      &= CheckEnvironmentCooking(path);
     valid      &= CheckEnvironmentFallbacks();

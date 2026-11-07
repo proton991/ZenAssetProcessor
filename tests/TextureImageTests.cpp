@@ -65,8 +65,9 @@ bool TestMips()
     image->mips.push_back(image->bytes);
     image->mips.push_back(Solid(2, 3, {80, 100, 120, 255})->bytes);
     const TextureImageResult partial = Process(image, use, settings);
-    valid = Check(partial.status.Succeeded() && partial.pixels->mips.size() == 3 && partial.pixels->bytes == image->bytes
-                      && partial.pixels->mips[1] == image->mips[1] && partial.pixels->mips[2][0] == 80,
+    valid = Check(partial.status.Succeeded() && partial.pixels->mips.size() == 3
+                      && GetImageBaseBytes(*partial.pixels) == image->bytes && partial.pixels->mips[1] == image->mips[1]
+                      && partial.pixels->mips[2][0] == 80,
                   "authored partial chain preserved and tail appended")
          && valid;
     image = Solid(2, 1, {255, 128, 128, 255});
@@ -94,7 +95,7 @@ bool TestEncoding()
         const TextureImageResult           encoded = Process(image, use, settings);
         valid = Check(encoded.status.Succeeded() && encoded.reason.empty() && encoded.pixels != image
                           && encoded.pixels->format == PixelFormat::BC7Srgb && encoded.pixels->mips.back().size() == 16
-                          && encoded.pixels->bytes == encoded.pixels->mips[0] && encoded.pixelBytes > 0
+                          && GetImageBaseBytes(*encoded.pixels) == encoded.pixels->mips[0] && encoded.pixelBytes > 0
                           && encoded.metrics.size() == encoded.pixels->mips.size(),
                       "BC7 tiny/odd mip chain and owned accounting")
              && valid;
@@ -305,7 +306,7 @@ bool TestNormalXYEncoding()
         const TextureImageResult           encoded = Process(image, use, settings);
         valid &= Check(encoded.status.Succeeded() && encoded.pixels != image && encoded.reason.empty()
                            && encoded.pixels->format == PixelFormat::BC5Unorm && encoded.pixels->mips.back().size() == 16
-                           && encoded.pixels->bytes == encoded.pixels->mips[0],
+                           && GetImageBaseBytes(*encoded.pixels) == encoded.pixels->mips[0],
                        "BC5 odd/tiny complete chains retain 16-byte blocks and base ownership");
         for (const TextureMipQuality& quality : encoded.metrics)
         {
@@ -320,7 +321,7 @@ bool TestNormalXYEncoding()
         valid    &= Check(decode.Succeeded() && decoded[0].w == 1, "BC5 normal alpha is absent from encoded storage");
         use.role  = TextureImageRole::Color;
         const TextureImageResult color = Process(image, use, settings);
-        valid    &= Check(color.status.Succeeded() && color.pixels == image && color.pixels->bytes[3] == 17,
+        valid    &= Check(color.status.Succeeded() && color.pixels == image && GetImageBaseBytes(*color.pixels)[3] == 17,
                           "BC5-only policy leaves color alpha and authored ownership untouched");
         use.role  = TextureImageRole::Normal;
         const TextureImageResult repeat = Process(image, use, settings);
@@ -560,8 +561,9 @@ bool TestNormalUvReconstructionCusp()
     if (point.status.Succeeded() && point.pixels && point.pixels != image)
     {
         std::array<Vec4, 16> decoded{};
-        const Status status  = DecodeBlock(PixelFormat::BC5Unorm, std::as_bytes(std::span(point.pixels->bytes)), decoded);
-        double       minimum = 2, maximum = 0;
+        const Status         status =
+            DecodeBlock(PixelFormat::BC5Unorm, std::as_bytes(std::span(GetImageBaseBytes(*point.pixels))), decoded);
+        double minimum = 2, maximum = 0;
         for (const Vec4& pixel : decoded)
         {
             const double x = pixel.x * 2 - 1, y = pixel.y * 2 - 1;
@@ -1050,7 +1052,7 @@ bool TestOcclusionEncoding()
     }
     const TextureImageResult encoded = Process(image, use, settings);
     bool valid = Check(encoded.status.Succeeded() && encoded.pixels != image && encoded.reason.empty()
-                           && encoded.pixels->format == PixelFormat::BC4Unorm && encoded.pixels->bytes.size() == 32
+                           && encoded.pixels->format == PixelFormat::BC4Unorm && GetImageBaseBytes(*encoded.pixels).size() == 32
                            && encoded.pixels->mips.back().size() == 8,
                        "BC4 consumes only R even with arbitrary GBA and a zero scalar tolerance");
     for (const TextureMipQuality& quality : encoded.metrics)
@@ -1059,7 +1061,7 @@ bool TestOcclusionEncoding()
     }
     use.role                      = TextureImageRole::Data;
     const TextureImageResult data = Process(image, use, settings);
-    valid    &= Check(data.status.Succeeded() && data.pixels == image && data.pixels->bytes == image->bytes,
+    valid    &= Check(data.status.Succeeded() && data.pixels == image && GetImageBaseBytes(*data.pixels) == image->bytes,
                       "BC4-only policy never discards GBA of general packed data");
     use.role  = TextureImageRole::Occlusion;
     const TextureImageResult repeat = Process(image, use, settings);

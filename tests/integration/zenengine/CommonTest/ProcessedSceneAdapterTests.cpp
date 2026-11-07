@@ -288,16 +288,33 @@ TEST(ProcessedSceneAdapter, PreservesHierarchyDeformationMaterialsAnimationAndEn
 
 TEST(ProcessedSceneAdapter, OwnsPixelsAndMipDataAfterTheSourceIsDestroyed)
 {
-    asset::SceneImportResult result;
+    for (const bool legacyDuplicate : {false, true})
     {
-        const zenasset::Scene source = RichProcessedScene();
-        result                       = asset::AdaptProcessedScene(source);
-        ASSERT_TRUE(result.asset) << result.error;
-        EXPECT_NE(result.asset->images[0].pixels->bytes.data(), source.images[0].pixels->bytes.data());
+        asset::SceneImportResult result;
+        {
+            zenasset::Scene                        source = RichProcessedScene();
+            std::shared_ptr<zenasset::ImagePixels> pixels = std::make_shared<zenasset::ImagePixels>(*source.images[0].pixels);
+            if (!legacyDuplicate)
+            {
+                pixels->bytes.clear();
+            }
+            source.images[0].pixels = pixels;
+            result                  = asset::AdaptProcessedScene(source);
+            ASSERT_TRUE(result.asset) << result.error;
+            EXPECT_TRUE(result.asset->images[0].pixels->bytes.empty());
+            EXPECT_NE(asset::GetImageBaseBytes(*result.asset->images[0].pixels).data(),
+                      zenasset::GetImageBaseBytes(*pixels).data());
+        }
+        EXPECT_EQ(asset::GetImageBaseBytes(*result.asset->images[0].pixels)[15], 127);
+        EXPECT_EQ(result.asset->images[0].pixels->mips[1][3], 4);
+        EXPECT_EQ(result.asset->animations[0].channels[1].sourceTarget, "/materials/0/specularTexture/offset");
+        const asset::SceneLoadResult runtime = asset::BuildSceneRuntime(result.asset);
+        ASSERT_TRUE(runtime.scene) << runtime.error;
+        const HeapVector<sg::Texture*> textures = runtime.scene->scene->GetComponents<sg::Texture>();
+        ASSERT_FALSE(textures.empty());
+        ASSERT_EQ(textures[0]->GetBytes().size(), 16u);
+        EXPECT_EQ(textures[0]->GetBytes()[15], 127);
     }
-    EXPECT_EQ(result.asset->images[0].pixels->bytes[15], 127);
-    EXPECT_EQ(result.asset->images[0].pixels->mips[1][3], 4);
-    EXPECT_EQ(result.asset->animations[0].channels[1].sourceTarget, "/materials/0/specularTexture/offset");
 }
 
 TEST(ProcessedSceneAdapter, RejectsUnsupportedEncodedImagesAndViewsWithoutPublishing)
@@ -352,7 +369,7 @@ TEST(ProcessedSceneAdapter, ArrayPagesPreserveOwnersLayersAndLogicalMipSpans)
         const asset::SceneImportResult adapted = asset::AdaptProcessedScene(source);
         ASSERT_TRUE(adapted.asset) << adapted.error;
         EXPECT_EQ(adapted.asset->images[0].pixels->arrayLayers, 2u);
-        EXPECT_NE(adapted.asset->images[0].pixels->bytes.data(), pixels->bytes.data());
+        EXPECT_NE(asset::GetImageBaseBytes(*adapted.asset->images[0].pixels).data(), pixels->bytes.data());
         const asset::SceneLoadResult runtime = asset::BuildSceneRuntime(adapted.asset);
         ASSERT_TRUE(runtime.scene) << runtime.error;
         const HeapVector<sg::Texture*> textures = runtime.scene->scene->GetComponents<sg::Texture>();
@@ -430,7 +447,7 @@ TEST(ProcessedSceneAdapter, BC7MipsPreserveOwningStorageAndCompatibleColorViews)
     EXPECT_EQ(result.asset->textures[0].format, asset::Format::BC7_SRGB_BLOCK);
     EXPECT_EQ(result.asset->images[0].pixels->mips.size(), 3u);
     EXPECT_EQ(result.asset->images[0].pixels->mips[2].size(), 16u);
-    EXPECT_NE(result.asset->images[0].pixels->bytes.data(), pixels->bytes.data());
+    EXPECT_NE(asset::GetImageBaseBytes(*result.asset->images[0].pixels).data(), pixels->bytes.data());
     for (uint32_t scenario = 0; scenario < 3; ++scenario)
     {
         std::shared_ptr<zenasset::ImagePixels> invalid = std::make_shared<zenasset::ImagePixels>(*pixels);
@@ -478,7 +495,7 @@ TEST(ProcessedSceneAdapter, BC4AndBC5PreserveMipsInterpretationAndRuntimeMateria
         EXPECT_EQ(adapted.asset->textures[0].format, normal ? asset::Format::BC5_UNORM_BLOCK : asset::Format::BC4_UNORM_BLOCK);
         EXPECT_EQ(adapted.asset->textures[0].interpretation,
                   normal ? asset::TextureInterpretation::NormalXYPositiveZ : asset::TextureInterpretation::Default);
-        EXPECT_NE(adapted.asset->images[0].pixels->bytes.data(), pixels->bytes.data());
+        EXPECT_NE(asset::GetImageBaseBytes(*adapted.asset->images[0].pixels).data(), pixels->bytes.data());
         EXPECT_EQ(adapted.asset->images[0].pixels->mips[2].size(), blockBytes);
         const asset::SceneLoadResult runtime = asset::BuildSceneRuntime(adapted.asset);
         ASSERT_TRUE(runtime.scene) << runtime.error;
@@ -661,7 +678,7 @@ TEST(ProcessedSceneAdapter, SpatialRegionsPreserveSharedOwnersAndIndependentRunt
         ASSERT_TRUE(zenasset::ValidateSceneAsset(source));
         adapted = asset::AdaptProcessedScene(source);
         ASSERT_TRUE(adapted.asset) << adapted.error;
-        EXPECT_NE(adapted.asset->images[0].pixels->bytes.data(), source.images[0].pixels->bytes.data());
+        EXPECT_NE(asset::GetImageBaseBytes(*adapted.asset->images[0].pixels).data(), source.images[0].pixels->bytes.data());
         EXPECT_EQ(adapted.asset->materials[0].textureTransforms[0].row0.x, source.materials[0].textureTransforms[0].row0.x);
         EXPECT_EQ(adapted.asset->materials[0].textureTransforms[0].row1.z, source.materials[0].textureTransforms[0].row1.z);
     }
@@ -813,11 +830,13 @@ TEST(ProcessedSceneAdapter, HonorsCancellationAndRuntimeGeometryBudgetBeforePubl
 
 TEST(ProcessedSceneAdapter, RuntimeDiscoveryAndLoadingDoNotDispatchSourceImporters)
 {
-    ASSERT_EQ(asset::GetSceneLoadFormats().size(), 1u);
+    ASSERT_EQ(asset::GetSceneLoadFormats().size(), 2u);
     EXPECT_EQ(asset::GetSceneLoadFormats()[0].id, "zenasset");
-    EXPECT_EQ(asset::GetSceneFileFilterExtensions(), "zenasset");
+    EXPECT_EQ(asset::GetSceneLoadFormats()[1].id, "zenscene");
+    EXPECT_EQ(asset::GetSceneFileFilterExtensions(), "zenasset;zenscene");
     EXPECT_EQ(asset::FindSceneLoadFormat("source.GLTF"), nullptr);
     EXPECT_NE(asset::FindSceneLoadFormat("prepared.ZENASSET"), nullptr);
+    EXPECT_NE(asset::FindSceneLoadFormat("prepared.ZENSCENE"), nullptr);
     const asset::SceneLoadResult result = asset::LoadScene("source.gltf");
     EXPECT_EQ(result.status, asset::SceneImportStatus::UnsupportedFormat);
     EXPECT_FALSE(result.scene);

@@ -51,6 +51,13 @@ class Fields:
             raise ValueError(f"Unconsumed resource bytes: {len(self.data) - self.offset}")
 
 
+class ResourceBytes(bytes):
+    def __new__(cls, data, version):
+        result = super().__new__(cls, data)
+        result.version = version
+        return result
+
+
 def package(path):
     data = path.read_bytes()
     if data[:8] != b"ZENASSET" or struct.unpack_from("<II", data, 8) != (3, 0x01020304):
@@ -62,9 +69,9 @@ def package(path):
         identity, kind, version, flags, codec, offset, stored, decoded, checksum, alignment, encoding = entry
         if codec or encoding or stored != decoded or offset + stored > len(data):
             raise ValueError("This audit requires validated raw resources")
-        if kind != 9 and version != 1 and not (kind in (4, 8) and version == 2):
+        if kind != 9 and version != 1 and not (kind in (4, 8) and version == 2) and not (kind == 13 and version in (2, 3)):
             raise ValueError("Unknown audited resource version")
-        resources[kind, (identity & INVALID) - 1] = data[offset:offset + stored]
+        resources[kind, (identity & INVALID) - 1] = ResourceBytes(data[offset:offset + stored], version)
     return resources
 
 

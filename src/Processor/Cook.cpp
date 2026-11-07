@@ -1,4 +1,4 @@
-#include "ZenAsset/Processor/Cook.h"
+#include "Processor/CookInternal.h"
 #include "Diagnostics/StageMeasurements.h"
 #include "ZenAsset/Format/Validation.h"
 #include "Processing/GeometryProcessing.h"
@@ -9,9 +9,12 @@
 
 namespace zenasset
 {
-SceneCookResult CookScene(const std::shared_ptr<const Scene>& input,
-                          const SceneCookOptions&             options,
-                          const Cancellation*                 cancellation)
+namespace
+{
+SceneCookResult CookSceneImpl(std::shared_ptr<const Scene> input,
+                              const SceneCookOptions&      options,
+                              const Cancellation*          cancellation,
+                              bool                         consumeImported)
 {
     ZENASSET_MEASURE_SCOPE(Cook);
     SceneCookResult result;
@@ -42,7 +45,15 @@ SceneCookResult CookScene(const std::shared_ptr<const Scene>& input,
     std::shared_ptr<Scene> cooked;
     if (result.status.Succeeded() && processing)
     {
-        cooked = std::make_shared<Scene>(*input);
+        if (consumeImported && input.use_count() == 1)
+        {
+            cooked = std::const_pointer_cast<Scene>(std::move(input));
+        }
+        else
+        {
+            cooked = std::make_shared<Scene>(*input);
+            input.reset();
+        }
         ZENASSET_MEASURE_BEGIN(geometry, GeometryProcess);
         result.status =
             detail::ProcessGeometry(*cooked, options.settings.geometry, remaining, result.diagnostics, cancellation);
@@ -83,5 +94,20 @@ SceneCookResult CookScene(const std::shared_ptr<const Scene>& input,
         result.scene = processing ? std::shared_ptr<const Scene>(std::move(cooked)) : input;
     }
     return result;
+}
+} // namespace
+
+SceneCookResult CookScene(const std::shared_ptr<const Scene>& input,
+                          const SceneCookOptions&             options,
+                          const Cancellation*                 cancellation)
+{
+    return CookSceneImpl(input, options, cancellation, false);
+}
+
+SceneCookResult detail::ConsumeCookScene(std::shared_ptr<const Scene> input,
+                                         const SceneCookOptions&      options,
+                                         const Cancellation*          cancellation)
+{
+    return CookSceneImpl(std::move(input), options, cancellation, true);
 }
 } // namespace zenasset

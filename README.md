@@ -6,6 +6,15 @@ with optional lossless Zstandard chunk compression, meshoptimizer stream encodin
 texture cooking and atlas packing. The v3 schema remains unreleased; current
 engine integration and rendered acceptance have separate gates.
 
+[Native scene assemblies](docs/AssemblyBuilds.md) build multiple models into
+independently reusable `.zenasset` files and one small `.zenscene` package.
+Version 2 manifests describe placements and light policy; version 1 batch builds
+remain compatible. The [native assembly contract](docs/SceneAssemblies.md) exposes
+source-free metadata/dependency reading without retaining every model in memory.
+ZenEngine assembly loading remains a separate integration step.
+The [Sponza verification report](docs/MultiModelVerification.md) records the
+processor tests, full-corpus measurements and remaining acceptance limits.
+
 The public format records use independent math and resource types. The reader
 has no engine, graphics API, source parser, or encoder dependency. Source
 processing is a separate optional target.

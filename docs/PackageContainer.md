@@ -166,3 +166,16 @@ substitute for semantic scene validation or validate compressed streams that the
 reader does not support. The open file remains owned by the package, and reads
 are serialized over that handle. Directory views require the package to remain
 alive. Callers own budgets for simultaneous results across package instances.
+
+## Image resource version 3
+
+Explicit mip chains use Image v3: `u32 width`, `u32 height`, `u32 PixelFormat`,
+the counted array of counted byte mip arrays, then `u32 arrayLayers`. Every mip,
+including level zero, appears once. The chain must be nonempty and each level
+contains all layers in ascending order. The ImageAsset name precedes this pixel
+record as in previous versions. Unmipped one-layer images may remain Image v1.
+
+Image v1/v2 decoding verifies that legacy `bytes` matches `mips[0]`, if present,
+then drops the redundant base allocation. The public base accessor works with
+both base-only and explicit-mip owners. Directory/header structure and compression
+rules are unchanged. Older readers reject required Image v3 resources.

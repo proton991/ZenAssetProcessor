@@ -186,7 +186,7 @@ int main()
     pixels.reset();
     zenasset::Scene copy = scene;
     scene.images.clear();
-    Check(copy.images[0].pixels->bytes[2] == 3, "A copied scene must retain its immutable image owner", failures);
+    Check(GetImageBaseBytes(*copy.images[0].pixels)[2] == 3, "A copied scene must retain its immutable image owner", failures);
     std::shared_ptr<zenasset::ImagePixels> blocks = std::make_shared<zenasset::ImagePixels>();
     blocks->width                                 = 5;
     blocks->height                                = 7;

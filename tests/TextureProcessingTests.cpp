@@ -320,7 +320,7 @@ bool TestSourceLifetimeAndDisabledPolicy()
         valid       &= Check(input.images[0].pixels->format == PixelFormat::RGBA8Unorm && input.images[0].pixels->mips.empty(),
                              "processing borrows source pixels without mutating them");
     }
-    valid          &= Check(original.expired() && !cooked.images[0].pixels->bytes.empty(),
+    valid          &= Check(original.expired() && !GetImageBaseBytes(*cooked.images[0].pixels).empty(),
                             "converted scene owns its blocks after original image storage is released");
     Scene disabled  = MakeScene();
     disabled.images.push_back(disabled.images[0]);
@@ -548,6 +548,37 @@ bool TestBudgetsAndCancellation()
     }
     return valid;
 }
+struct ImageLifetimeProbe
+{
+    std::weak_ptr<const ImagePixels> first;
+    std::weak_ptr<const ImagePixels> second;
+    bool                             releasedBeforeSecond{false};
+};
+
+bool ObserveImageRelease(void* user)
+{
+    ImageLifetimeProbe& probe   = *static_cast<ImageLifetimeProbe*>(user);
+    probe.releasedBeforeSecond |= probe.first.expired() && !probe.second.expired();
+    return false;
+}
+
+bool TestProgressiveImageRelease()
+{
+    Scene scene = MakeScene();
+    scene.images.push_back({"second source", std::make_shared<ImagePixels>(*scene.images[0].pixels)});
+    scene.textures.push_back(scene.textures[0]);
+    scene.textures[1].image = ImageId{1};
+    scene.materials.push_back(scene.materials[0]);
+    scene.materials[1].m_pBaseColorTexture = TextureId{1};
+    ImageLifetimeProbe      probe{scene.images[0].pixels, scene.images[1].pixels};
+    const Cancellation      observe(ObserveImageRelease, &probe);
+    uint64_t                remaining = 64ull << 20;
+    std::vector<Diagnostic> diagnostics;
+    const Status            status = detail::ProcessTextures(scene, Settings(), remaining, diagnostics, &observe);
+    return Check(status.Succeeded() && probe.releasedBeforeSecond && probe.first.expired() && probe.second.expired(),
+                 "exclusive source pixels are released after their final role before the next image finishes");
+}
+
 } // namespace
 
 int main()
@@ -558,6 +589,7 @@ int main()
     valid      &= TestViewTransferSamplersAndUnboundResources();
     valid      &= TestMaskFactorsAndAnimationIdentity();
     valid      &= TestSourceLifetimeAndDisabledPolicy();
+    valid      &= TestProgressiveImageRelease();
     valid      &= TestOpacityExclusions();
     valid      &= TestNormalScaleExclusions();
     valid      &= TestNormalAndOcclusionSplits();

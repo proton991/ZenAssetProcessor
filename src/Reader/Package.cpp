@@ -21,7 +21,7 @@ bool IsCancelled(const Cancellation* cancellation)
 
 bool KnownType(ResourceType type)
 {
-    return type >= ResourceType::Scene && type <= ResourceType::SourceDocument;
+    return type >= ResourceType::Scene && type <= ResourceType::Assembly;
 }
 
 ResourceRecord DecodeEntry(const uint8_t* bytes)
@@ -83,6 +83,7 @@ struct Package::State
     FILE*                       file{nullptr};
     std::vector<ResourceRecord> resources;
     uint64_t                    maxCodecBytes{0};
+    PackageIdentity             identity;
     mutable std::mutex          mutex;
 
     ~State()
@@ -97,6 +98,11 @@ struct Package::State
 
 Package::Package(std::unique_ptr<State> state) : m_state(std::move(state)) {}
 Package::~Package() = default;
+
+PackageIdentity Package::Identity() const
+{
+    return m_state->identity;
+}
 
 std::span<const ResourceRecord> Package::Resources() const
 {
@@ -316,7 +322,8 @@ PackageResult OpenPackage(const std::string& path, const ReadLimits& limits, con
     }
     if (result.status.Succeeded())
     {
-        result.package = std::shared_ptr<const Package>(new Package(std::move(state)));
+        state->identity = {fileBytes, detail::Read64(header.data() + 56)};
+        result.package  = std::shared_ptr<const Package>(new Package(std::move(state)));
     }
     return result;
 }

@@ -287,3 +287,25 @@ BC4 previews display grayscale; BC5 previews require the explicit normal
 interpretation and reconstruct the direction. Unknown or mismatched markers
 fail clearly. Texture record version 1 defaults to ordinary channel sampling;
 version 2 stores the marker.
+
+## Single-owner mip storage
+
+New texture, array-page and spatial-page outputs keep each level exactly once in
+`ImagePixels::mips`; `bytes` is empty when an explicit mip chain is present.
+Use `GetImageBaseBytes` for the authoritative complete base level or
+`GetImageLayerMipBytes` for a layer/mip view. Unmipped imported images continue to
+own their base level in `bytes`. Legacy callers may provide duplicate base bytes,
+but validation requires an exact match with mip zero.
+
+Image resource v3 stores dimensions, format, the mip vector and array-layer count,
+without a second base payload. Readers accept v1/v2 packages, verify their duplicate
+base data, then discard the duplicate allocation. Readers predating Image v3 reject
+its required resource version. Consumers that directly assume `bytes` is populated
+for mipped images need to adopt the base accessor when updating this library.
+
+The internal import-to-cook pipeline can transfer an exclusive imported scene owner
+to avoid copying its geometry. Shared imports fall back to copying, and public
+`CookScene` keeps its immutable-input contract. Replaced image source storage is
+released after its final role has been processed when no other owner retains it.
+These changes reduce retained payloads; allocation limits remain conservative
+admission accounting, not process-memory guarantees.

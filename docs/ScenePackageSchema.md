@@ -10,8 +10,9 @@ requires a resource schema version change.
 Resources use schema version 1 except Metadata (version 7 or 8, accepting 1–8),
 Texture (version 2, 3 or 4, accepting 1–4), Image (version 1 or 2, accepting 1–2),
 and Environment (version 2, accepting 1–2). The writer retains Image v1 for
-single-layer images and Texture v2 for layer-zero views; arrays and nonzero
-layer views use their respective newer schemas. A spatial region requires
+unmipped single-layer images and uses Image v3 for explicit mip chains, storing
+each mip once. Texture v2 remains for layer-zero views; nonzero layer views use
+their newer schema. A spatial region requires
 Texture v4; ordinary records keep their existing versions. Spatial records are
 supported by the standalone format/Reader and optional [spatial cooking](SpatialCooking.md),
 with engine rendering still pending; see [SpatialTextureRegions.md](SpatialTextureRegions.md).

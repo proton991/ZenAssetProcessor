@@ -245,7 +245,7 @@ bool TestProcessControl()
         valid                           = Baseline(*source, quality, expected) && valid;
         budget                          = 1ull << 20;
         const TextureImageResult result = ProcessTextureImage(source, use, settings, budget);
-        valid = Check(result.status.Succeeded() && result.pixels != source && result.pixels->bytes == expected,
+        valid = Check(result.status.Succeeded() && result.pixels != source && GetImageBaseBytes(*result.pixels) == expected,
                       "Quality levels zero through three retain baseline encoding")
              && valid;
     }
@@ -255,8 +255,9 @@ bool TestProcessControl()
     valid                            = Baseline(*source, 4, expected) && valid;
     budget                           = 1ull << 20;
     const TextureImageResult nearest = ProcessTextureImage(source, use, settings, budget);
-    valid = Check(nearest.status.Succeeded() && nearest.pixels->bytes == expected, "Nearest-only uses keep baseline encoding")
-         && valid;
+    valid                            = Check(nearest.status.Succeeded() && GetImageBaseBytes(*nearest.pixels) == expected,
+                                             "Nearest-only uses keep baseline encoding")
+                                    && valid;
     return valid;
 }
 
@@ -284,14 +285,14 @@ bool TestRegression()
     if (result.pixels && result.pixels != source)
     {
         const Measured before = Measure(*source, original, use);
-        const Measured after  = Measure(*source, result.pixels->bytes, use);
+        const Measured after  = Measure(*source, GetImageBaseBytes(*result.pixels), use);
         double         oldSum = 0, newSum = 0;
         for (uint32_t phase = 0; phase < 16; ++phase)
         {
             oldSum += before.phases[phase];
             newSum += after.phases[phase];
         }
-        valid = Check(after.valid && before.valid && newSum < oldSum && result.pixels->bytes != original,
+        valid = Check(after.valid && before.valid && newSum < oldSum && GetImageBaseBytes(*result.pixels) != original,
                       "Public quality-4 processing improves the measured filtered normal ramp")
              && valid;
     }

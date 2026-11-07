@@ -70,7 +70,8 @@ bool Verify(const std::vector<AtlasTileInput>& inputs, const ArrayPackResult& pa
     {
         const ImagePixels& pixels = *page.pixels;
         valid &= Check(pixels.arrayLayers >= 2 && pixels.arrayLayers <= options.maxLayers, "Array layer count is bounded");
-        valid &= Check(!pixels.mips.empty() && pixels.bytes == pixels.mips[0], "Array page has explicit consistent mip zero");
+        valid &= Check(!pixels.mips.empty() && pixels.bytes.empty() && GetImageBaseBytes(pixels) == pixels.mips[0],
+                       "Array page has explicit consistent mip zero");
         occupied.emplace_back(pixels.arrayLayers, 0);
         owned += sizeof(ImagePixels) + pixels.mips.size() * sizeof(std::vector<uint8_t>) + pixels.bytes.size();
         for (const std::vector<uint8_t>& mip : pixels.mips)

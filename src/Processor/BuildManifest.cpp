@@ -25,7 +25,8 @@ enum class Kind
     Geometry,
     Textures,
     Compression,
-    Transport
+    Transport,
+    Matrix
 };
 struct Field
 {
@@ -46,9 +47,21 @@ public:
         {
             Fail("Manifest must be an object");
         }
-        bool versionSeen   = false;
-        bool directorySeen = false;
-        bool jobsSeen      = false;
+        uint64_t version = 0;
+        if (m_status.Succeeded()
+            && (document["version"].get_uint64().get(version) != simdjson::SUCCESS || (version != 1 && version != 2)))
+        {
+            Fail("Manifest version must be integer 1 or 2");
+        }
+        manifest.version     = static_cast<uint32_t>(version);
+        bool assemblySeen    = false;
+        bool instancesSeen   = false;
+        bool nameSeen        = false;
+        bool cameraSeen      = false;
+        bool environmentSeen = false;
+        bool versionSeen     = false;
+        bool directorySeen   = false;
+        bool jobsSeen        = false;
         if (m_status.Succeeded())
         {
             for (simdjson::dom::key_value_pair entry : object)
@@ -60,12 +73,7 @@ public:
                 }
                 if (entry.key == "version" && !versionSeen)
                 {
-                    uint64_t version = 0;
-                    versionSeen      = true;
-                    if (entry.value.get_uint64().get(version) != simdjson::SUCCESS || version != 1)
-                    {
-                        Fail("Manifest version must be integer 1");
-                    }
+                    versionSeen = true;
                 }
                 else if (entry.key == "outputDirectory" && !directorySeen)
                 {
@@ -75,7 +83,32 @@ public:
                 else if (entry.key == "jobs" && !jobsSeen)
                 {
                     jobsSeen = true;
-                    Jobs(entry.value, manifest.jobs);
+                    Jobs(entry.value, manifest.jobs, manifest.version == 2 ? &manifest.assembly.models : nullptr);
+                }
+                else if (manifest.version == 2 && entry.key == "assembly" && !assemblySeen)
+                {
+                    assemblySeen = true;
+                    Value(entry.value, {entry.key, Kind::Text, &manifest.assemblyOutput});
+                }
+                else if (manifest.version == 2 && entry.key == "name" && !nameSeen)
+                {
+                    nameSeen = true;
+                    Value(entry.value, {entry.key, Kind::Text, &manifest.assembly.name});
+                }
+                else if (manifest.version == 2 && entry.key == "instances" && !instancesSeen)
+                {
+                    instancesSeen = true;
+                    Instances(entry.value, manifest.assembly.instances);
+                }
+                else if (manifest.version == 2 && entry.key == "camera" && !cameraSeen)
+                {
+                    cameraSeen = true;
+                    Selection(entry.value, manifest.assembly.camera);
+                }
+                else if (manifest.version == 2 && entry.key == "environment" && !environmentSeen)
+                {
+                    environmentSeen = true;
+                    Selection(entry.value, manifest.assembly.environment);
                 }
                 else
                 {
@@ -86,6 +119,10 @@ public:
         if (!versionSeen || !directorySeen || !jobsSeen || manifest.jobs.empty())
         {
             Fail("Manifest requires version, outputDirectory and nonempty jobs");
+        }
+        if (manifest.version == 2 && (!assemblySeen || !instancesSeen || manifest.assembly.instances.empty()))
+        {
+            Fail("Assembly manifest requires assembly and nonempty instances");
         }
         return m_status;
     }
@@ -212,6 +249,7 @@ private:
                     *static_cast<double*>(field.value) = number;
                 }
                 break;
+            case Kind::Matrix: Matrix(value, *static_cast<Mat4*>(field.value)); break;
             case Kind::Source: Source(value, *static_cast<SourceSettings*>(field.value)); break;
             case Kind::Bake: Bake(value, *static_cast<AnimationBakeSettings*>(field.value)); break;
             case Kind::Processing: Processing(value, *static_cast<ProcessingSettings*>(field.value)); break;
@@ -295,7 +333,70 @@ private:
             settings.zstandardLevel = static_cast<int32_t>(level);
         }
     }
-    void Jobs(simdjson::dom::element value, std::vector<SceneBuildJob>& jobs)
+    void Matrix(simdjson::dom::element value, Mat4& matrix)
+    {
+        simdjson::dom::array array;
+        if (value.get_array().get(array) != simdjson::SUCCESS || array.size() != 16)
+        {
+            Fail("Transform must have 16 column-major numbers");
+        }
+        size_t index = 0;
+        if (m_status.Succeeded())
+        {
+            for (simdjson::dom::element item : array)
+            {
+                Value(item, {"transform", Kind::Float, &matrix[index / 4][index % 4]});
+                ++index;
+            }
+        }
+    }
+    void Selection(simdjson::dom::element value, AssemblySelection& selection)
+    {
+        const Field fields[]{{"instance", Kind::Text, &selection.instance}, {"resource", Kind::U32, &selection.resource}};
+        Object(value, fields);
+        if (selection.instance.empty() || selection.resource == UINT32_MAX)
+        {
+            Fail("Selection requires instance and resource");
+        }
+    }
+    void Instances(simdjson::dom::element value, std::vector<AssemblyInstance>& instances)
+    {
+        simdjson::dom::array array;
+        if (value.get_array().get(array) != simdjson::SUCCESS || array.size() > 65536
+            || array.size() > m_limits.maxPlanningBytes / sizeof(AssemblyInstance))
+        {
+            Fail("Instances exceed the planning budget");
+        }
+        if (m_status.Succeeded())
+        {
+            for (simdjson::dom::element item : array)
+            {
+                Poll();
+                AssemblyInstance instance;
+                const Field      fields[]{{"key", Kind::Text, &instance.key},
+                                          {"model", Kind::Text, &instance.model},
+                                          {"transform", Kind::Matrix, &instance.transform},
+                                          {"submitLights", Kind::Boolean, &instance.submitLights}};
+                Object(item, fields);
+                const uint64_t bytes = sizeof(AssemblyInstance) + instance.key.size() + instance.model.size();
+                if (bytes > m_limits.maxPlanningBytes - m_jobBytes)
+                {
+                    Fail("Instances exceed the planning budget");
+                }
+                if (instance.key.empty() || instance.model.empty())
+                {
+                    Fail("Instances require key and model");
+                }
+                if (!m_status.Succeeded())
+                {
+                    break;
+                }
+                m_jobBytes += bytes;
+                instances.push_back(std::move(instance));
+            }
+        }
+    }
+    void Jobs(simdjson::dom::element value, std::vector<SceneBuildJob>& jobs, std::vector<AssemblyModel>* models)
     {
         simdjson::dom::array array;
         if (value.get_array().get(array) != simdjson::SUCCESS || array.size() > m_limits.maxJobs)
@@ -314,13 +415,19 @@ private:
                 if (m_status.Succeeded())
                 {
                     SceneBuildJob job;
-                    const Field   fields[]{{"source", Kind::Text, &job.source},
-                                           {"output", Kind::Text, &job.output},
-                                           {"profile", Kind::Text, &job.profile},
-                                           {"sourceSettings", Kind::Source, &job.sourceSettings},
-                                           {"processing", Kind::Processing, &job.processing},
-                                           {"compression", Kind::Compression, &job.compression}};
+                    AssemblyModel model;
+                    const Field   fields[]{
+                        {"source", Kind::Text, &job.source},
+                        {models == nullptr ? "output" : "key", Kind::Text, models == nullptr ? &job.output : &model.key},
+                        {"profile", Kind::Text, &job.profile},
+                        {"sourceSettings", Kind::Source, &job.sourceSettings},
+                        {"processing", Kind::Processing, &job.processing},
+                        {"compression", Kind::Compression, &job.compression}};
                     Object(item, fields);
+                    if (models != nullptr && !model.key.empty())
+                    {
+                        job.output = model.key + ".zenasset";
+                    }
                     if (job.source.empty() || job.output.empty())
                     {
                         Fail("Every job requires source and output");
@@ -331,8 +438,9 @@ private:
                     }
                     if (m_status.Succeeded())
                     {
-                        const uint64_t bytes =
-                            sizeof(SceneBuildJob) + job.source.size() + job.output.size() + job.profile.size();
+                        const uint64_t bytes = sizeof(SceneBuildJob) + job.source.size() + job.output.size()
+                                             + job.profile.size()
+                                             + (models == nullptr ? 0 : sizeof(AssemblyModel) + model.key.size());
                         if (bytes > m_limits.maxPlanningBytes - m_jobBytes)
                         {
                             m_status = {StatusCode::ResourceLimit, "Manifest jobs exceed the planning budget"};
@@ -341,6 +449,10 @@ private:
                         {
                             m_jobBytes += bytes;
                             jobs.push_back(std::move(job));
+                            if (models != nullptr)
+                            {
+                                models->push_back(std::move(model));
+                            }
                         }
                     }
                 }

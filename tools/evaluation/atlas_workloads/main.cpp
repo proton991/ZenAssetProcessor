@@ -161,7 +161,8 @@ bool Preserved(const Scene& source, const Scene& candidate)
                     const size_t from = size_t(y) * a.width * 4;
                     const size_t to   = (size_t(region.y + y) * b.width + region.x) * 4;
                     valid &=
-                        Check(std::equal(a.bytes.begin() + from, a.bytes.begin() + from + a.width * 4, b.bytes.begin() + to),
+                        Check(std::equal(GetImageBaseBytes(a).begin() + from, GetImageBaseBytes(a).begin() + from + a.width * 4,
+                                         GetImageBaseBytes(b).begin() + to),
                               "Spatial tile bytes changed");
                 }
             }

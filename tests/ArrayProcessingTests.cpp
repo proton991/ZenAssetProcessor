@@ -117,7 +117,8 @@ bool Preserved(const Scene& original, const Scene& cooked)
         {
             const ImageRegion& region = cooked.textures[texture].atlasRegion;
             valid &= Check(region.width == source.width && region.height == source.height && target.mips.size() == 1
-                               && target.bytes == target.mips[0] && target.arrayLayers == 1 && source.format == target.format,
+                               && target.bytes.empty() && GetImageBaseBytes(target) == target.mips[0] && target.arrayLayers == 1
+                               && source.format == target.format,
                            "Spatial region retains logical dimensions and format in a single-level page");
             bool identical = true;
             for (int32_t y = -4; y < int32_t(region.height) + 4; ++y)
@@ -129,7 +130,8 @@ bool Preserved(const Scene& original, const Scene& cooked)
                     const size_t   from = (size_t(sy) * source.width + sx) * 4;
                     const size_t   to   = ((size_t(region.y) + y) * target.width + region.x + x) * 4;
                     identical &=
-                        std::equal(source.bytes.begin() + from, source.bytes.begin() + from + 4, target.bytes.begin() + to);
+                        std::equal(GetImageBaseBytes(source).begin() + from, GetImageBaseBytes(source).begin() + from + 4,
+                                   GetImageBaseBytes(target).begin() + to);
                 }
             }
             valid &= Check(identical, "Every tile and all four extruded gutters retain exact source texels");

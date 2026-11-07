@@ -150,7 +150,7 @@ private:
         {
             m_result.status = {StatusCode::ResourceLimit, "Array input exceeds the dimension limit"};
         }
-        else if (pixels.bytes != pixels.mips[0])
+        else if (!pixels.bytes.empty() && pixels.bytes != pixels.mips[0])
         {
             m_result.status = {StatusCode::InvalidData, "Array base bytes differ from mip zero"};
         }
@@ -244,11 +244,6 @@ private:
                                   m_inputs[m_order[plan.first + layer]].pixels->mips[level]);
                     }
                 }
-            }
-            if (Active() && Reserve(pixels->mips[0].size(), 1, true))
-            {
-                pixels->bytes.resize(pixels->mips[0].size());
-                CopyBytes(pixels->bytes, 0, pixels->mips[0]);
             }
             if (Active())
             {

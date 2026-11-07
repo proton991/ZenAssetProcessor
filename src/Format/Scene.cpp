@@ -57,6 +57,11 @@ bool GetImageArrayLevelByteSize(PixelFormat format, uint32_t width, uint32_t hei
     return valid;
 }
 
+const std::vector<uint8_t>& GetImageBaseBytes(const ImagePixels& pixels)
+{
+    return pixels.mips.empty() ? pixels.bytes : pixels.mips[0];
+}
+
 bool GetImageLayerMipBytes(const ImagePixels& pixels, uint32_t layer, uint32_t mip, std::span<const uint8_t>& bytes)
 {
     bytes      = {};

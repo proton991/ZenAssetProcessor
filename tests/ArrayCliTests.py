@@ -66,7 +66,7 @@ def main():
         for field in ("nodes", "meshes", "vertices", "indices", "materials", "animations", "skins"):
             assert result[field] == reference[field], field
         resources = json.loads(invoke(executable, "inspect", packed).stdout)["resources"]
-        assert sum(resource["type"] == 13 and resource["version"] == 2 for resource in resources) == 1
+        assert sum(resource["type"] == 13 and resource["version"] == 3 for resource in resources) == 1
         assert any(resource["type"] == 4 and resource["version"] == 3 for resource in resources)
         assert any(resource["type"] == 9 and resource["version"] == 7 for resource in resources)
         before = packed.read_bytes()

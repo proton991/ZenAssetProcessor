@@ -16,6 +16,8 @@ if(ZENASSET_BUILD_CLI)
         if(Python3_Interpreter_FOUND)
             add_test(NAME ZenAssetCommandLine COMMAND ${Python3_EXECUTABLE}
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/CliTests.py $<TARGET_FILE:zenassetc>)
+            add_test(NAME ZenAssetAssemblyCleanupCommandLine COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/AssemblyCleanupCliTests.py $<TARGET_FILE:zenassetc>)
             add_test(NAME ZenAssetBuildCommandLine COMMAND ${Python3_EXECUTABLE}
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/BuildCliTests.py $<TARGET_FILE:zenassetc>)
             add_test(NAME ZenAssetArrayCommandLine COMMAND ${Python3_EXECUTABLE}
