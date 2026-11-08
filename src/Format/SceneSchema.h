@@ -197,6 +197,11 @@ template <class Archive> void Fields(Archive& ar, typename Archive::template Val
     ar(v.name, v.minFilter, v.magFilter, v.mipFilter, v.useMipmaps, v.wrapS, v.wrapT);
 }
 
+template <class Archive> void Fields(Archive& ar, typename Archive::template Value<AlphaMipStatistics>& v)
+{
+    ar(v.texels, v.zeroTexels, v.oneTexels, v.zeroCells, v.oneCells);
+}
+
 template <class Archive> void Fields(Archive& ar, typename Archive::template Value<TextureAsset>& v)
 {
     ar(v.name, v.image, v.sampler, v.linearSource, v.format, v.flatNormal);
@@ -211,6 +216,10 @@ template <class Archive> void Fields(Archive& ar, typename Archive::template Val
     if (ar.Version() >= 4)
     {
         ar(v.atlasRegion.x, v.atlasRegion.y, v.atlasRegion.width, v.atlasRegion.height);
+    }
+    if (ar.Version() >= 5)
+    {
+        ar(v.alphaMips);
     }
 }
 
@@ -302,6 +311,10 @@ template <class Archive> void Fields(Archive& ar, typename Archive::template Val
     if (ar.Version() >= 8)
     {
         ar(v.spatialPages, v.spatialMaxDimension, v.spatialMaxPages, v.spatialMaxImages);
+    }
+    if (ar.Version() >= 9)
+    {
+        ar(v.collectAlphaStatistics);
     }
 }
 

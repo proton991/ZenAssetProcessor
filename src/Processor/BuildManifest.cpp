@@ -314,7 +314,8 @@ private:
                              {"spatialPages", Kind::Boolean, &settings.spatialPages},
                              {"spatialMaxDimension", Kind::U32, &settings.spatialMaxDimension},
                              {"spatialMaxPages", Kind::U32, &settings.spatialMaxPages},
-                             {"spatialMaxImages", Kind::U32, &settings.spatialMaxImages}};
+                             {"spatialMaxImages", Kind::U32, &settings.spatialMaxImages},
+                             {"collectAlphaStatistics", Kind::Boolean, &settings.collectAlphaStatistics}};
         Object(value, fields);
     }
     void Compression(simdjson::dom::element value, CompressionSettings& settings)

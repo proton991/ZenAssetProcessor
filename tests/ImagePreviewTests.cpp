@@ -270,6 +270,32 @@ bool CheckFailures()
          && valid;
     return valid;
 }
+bool CheckAlphaStatistics()
+{
+    const std::array<uint8_t, 16> pixels{0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 128, 0, 0, 0, 255};
+    ImageMipView                  mip{PixelFormat::RGBA8Unorm, 2, 2, std::as_bytes(std::span(pixels))};
+    ImageAlphaStatisticsResult    result = AnalyzeImageAlpha(mip);
+    bool valid  = Check(result.status.Succeeded() && result.statistics == AlphaMipStatistics{4, 1, 2, 0, 0},
+                        "alpha endpoints and mixed bilinear footprints");
+    mip.region  = {1, 0, 1, 2};
+    result      = AnalyzeImageAlpha(mip);
+    valid      &= Check(result.status.Succeeded() && result.statistics == AlphaMipStatistics{2, 0, 2, 0, 2},
+                        "logical alpha region excludes neighboring pixels");
+    mip         = {PixelFormat::BC7Srgb, 3, 2, std::as_bytes(std::span(kColorBlock))};
+    result      = AnalyzeImageAlpha(mip);
+    valid      &= Check(result.status.Succeeded() && result.statistics == AlphaMipStatistics{6, 0, 0, 0, 0},
+                        "BC7 alpha statistics exclude padded block texels");
+    Cancellation cancelled;
+    cancelled.Cancel();
+    result     = AnalyzeImageAlpha(mip, &cancelled);
+    valid     &= Check(result.status.code == StatusCode::Cancelled && result.statistics == AlphaMipStatistics{},
+                       "cancelled alpha statistics publish no partial counts");
+    mip.bytes  = mip.bytes.first(15);
+    result     = AnalyzeImageAlpha(mip);
+    valid     &= Check(result.status.code == StatusCode::InvalidArgument && result.statistics == AlphaMipStatistics{},
+                       "truncated alpha input rejected");
+    return valid;
+}
 } // namespace
 
 int main()
@@ -280,6 +306,7 @@ int main()
     valid      = CheckScalarAndNormal() && valid;
     valid      = CheckFailures() && valid;
     valid      = CheckRegions() && valid;
+    valid      = CheckAlphaStatistics() && valid;
     std::printf("Bounded image preview fixtures: %s\n", valid ? "PASS" : "FAIL");
     return valid ? 0 : 1;
 }

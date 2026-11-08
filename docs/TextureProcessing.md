@@ -28,6 +28,7 @@ zenassetc cook model.glb --output model.zenasset --profile desktop --texture-mip
 | `TextureSettings` field | CLI option | Default |
 | --- | --- | --- |
 | `generateMipmaps` | `--texture-mipmaps off\|on` | `false` |
+| `collectAlphaStatistics` | `--texture-alpha-statistics off\|on` | `false` |
 | `compressBC7` | `--texture-compression none\|bc7` | `false` |
 | `bc7Quality` | `--texture-quality 0..4` | `4` |
 | `maxDimension` | `--texture-max-dimension N` | `16384` |
@@ -60,7 +61,8 @@ All fields participate in `ProcessingSettingsHash`, including values for
 disabled operations. Build metadata version 5 records the initial BC7 texture
 policy; version 6 adds BC4/BC5/BC6H settings and version 7 adds array-page
 activation and limits. Version 8 adds spatial activation and limits; all-default
-spatial values retain v7 output. Identity layout 4 includes all spatial fields.
+spatial values retain v7 output. Version 9 adds opacity statistics; identity
+layout 5 includes that switch along with all spatial fields.
 Absent fields in earlier metadata
 default to disabled operations. The hash uses
 explicit little-endian fields and float bit patterns, independent of native
@@ -287,6 +289,23 @@ BC4 previews display grayscale; BC5 previews require the explicit normal
 interpretation and reconstruct the direction. Unknown or mismatched markers
 fail clearly. Texture record version 1 defaults to ordinary channel sampling;
 version 2 stores the marker.
+
+## Opacity statistics
+
+`collectAlphaStatistics` records optional metadata for RGBA8/BC7 textures used by
+non-opaque materials after cooking and page packing. Each logical mip records its
+texel count, exact zero/one alpha counts, and homogeneous zero/one bilinear-cell
+counts. Partial counts are the remainder. Cell neighbors wrap within the logical
+region; mixed cells conservatively cover repeat and clamp/mirror edge filtering.
+Border-color filtering and trilinear blends need separate runtime policy.
+
+The analysis does not change alpha, generate missing mip levels, or change the
+authored alpha mode. These texture-space counts do not predict the view's shaded
+fragment distribution: UV ranges, selected mips, vertex alpha and material factors
+still matter. Texture resource v5 stores the optional mip records; Metadata v9
+stores the requested policy. Empty records, including older packages, mean unknown.
+`AnalyzeImageAlpha` exposes the same bounded-storage analysis through the reader
+for consumers loading older packages. Its input is one resident layer/mip view.
 
 ## Single-owner mip storage
 

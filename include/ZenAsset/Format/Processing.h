@@ -49,7 +49,9 @@ struct TextureSettings
     uint32_t spatialMaxDimension{2048};
     uint32_t spatialMaxPages{64};
     uint32_t spatialMaxImages{8192};
-    bool     operator==(const TextureSettings&) const = default;
+    // Metadata only, measured after cooking from finalized opacity textures.
+    bool collectAlphaStatistics{false};
+    bool operator==(const TextureSettings&) const = default;
 };
 
 struct ProcessingSettings

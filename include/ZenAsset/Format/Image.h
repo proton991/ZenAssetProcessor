@@ -164,6 +164,19 @@ struct ImageRegion
     bool     operator==(const ImageRegion&) const = default;
 };
 
+// Statistics of one logical mip, independent of material factors and vertex alpha.
+// Partial texels/cells are texels - zero - one. A cell covers the four samples
+// used by bilinear filtering; mixed cells conservatively count as partial.
+struct AlphaMipStatistics
+{
+    uint64_t texels{0};
+    uint64_t zeroTexels{0};
+    uint64_t oneTexels{0};
+    uint64_t zeroCells{0};
+    uint64_t oneCells{0};
+    bool     operator==(const AlphaMipStatistics&) const = default;
+};
+
 // Accepts the all-zero full-image sentinel or a nonempty contained rectangle.
 // Uses subtraction for extent checks so hostile coordinates cannot wrap.
 bool IsValidImageRegion(const ImageRegion& region, uint32_t width, uint32_t height);
@@ -185,5 +198,7 @@ struct TextureAsset
     // aligned origins/gutters, explicit linear/clamp sampling and no arrays.
     // This record alone does not establish renderer support or eligibility.
     ImageRegion atlasRegion;
+    // Optional Texture v5 metadata. Empty means unknown, including old packages.
+    std::vector<AlphaMipStatistics> alphaMips;
 };
 } // namespace zenasset

@@ -68,14 +68,14 @@ bool HasProcessingOperations(const ProcessingSettings& settings)
     return settings.geometry.optimizeVertexFetch || settings.geometry.positionQuantizationBits != 0
         || settings.textures.generateMipmaps || settings.textures.compressBC7 || settings.textures.compressBC5Normals
         || settings.textures.compressBC4Occlusion || settings.textures.compressBC6HEnvironment || settings.textures.arrayPages
-        || settings.textures.spatialPages;
+        || settings.textures.spatialPages || settings.textures.collectAlphaStatistics;
 }
 
 uint64_t ProcessingSettingsHash(const ProcessingSettings& settings)
 {
     kernels::HashState hash{};
     kernels::ResetHash(hash, 0);
-    HashField(hash, 4); // Processing identity layout version.
+    HashField(hash, 5); // Processing identity layout version.
     HashField(hash, settings.geometry.optimizeVertexFetch ? 1u : 0u);
     HashField(hash, settings.geometry.positionQuantizationBits);
     HashField(hash, std::bit_cast<uint32_t>(settings.geometry.positionMaxRelativeError));
@@ -103,6 +103,7 @@ uint64_t ProcessingSettingsHash(const ProcessingSettings& settings)
     HashField(hash, settings.textures.spatialMaxDimension);
     HashField(hash, settings.textures.spatialMaxPages);
     HashField(hash, settings.textures.spatialMaxImages);
+    HashField(hash, settings.textures.collectAlphaStatistics ? 1u : 0u);
     return kernels::FinishHash(hash);
 }
 } // namespace zenasset

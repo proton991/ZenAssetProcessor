@@ -94,7 +94,7 @@ RECORD(ImagePixels,
 RECORD(ImageAsset, FIELD(name) FIELD(pixels))
 RECORD(TextureAsset,
        FIELD(name) FIELD(image) FIELD(sampler) FIELD(linearSource) FIELD(format) FIELD(flatNormal) FIELD(interpretation)
-           FIELD(arrayLayer) FIELD(atlasRegion))
+           FIELD(arrayLayer) FIELD(atlasRegion) FIELD(alphaMips))
 RECORD(SamplerAsset, FIELD(name) FIELD(minFilter) FIELD(magFilter) FIELD(mipFilter) FIELD(useMipmaps) FIELD(wrapS) FIELD(wrapT))
 RECORD(MorphColorAttributeAsset, FIELD(set) FIELD(values))
 RECORD(MorphTargetAsset, FIELD(positions) FIELD(normals) FIELD(tangents) FIELD(texCoords) FIELD(colors) FIELD(extraColors))

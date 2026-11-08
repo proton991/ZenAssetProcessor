@@ -2,6 +2,7 @@
 #include "Processor/CookInternal.h"
 #include "ZenAsset/Processor/Import.h"
 #include "ZenAsset/Processor/Write.h"
+#include "ZenAsset/Format/Validation.h"
 #include "Processing/SceneStorage.h"
 #include "SceneValueComparison.h"
 #include <algorithm>
@@ -49,6 +50,42 @@ std::shared_ptr<const Scene> MakeScene()
     pixels->mips.push_back(pixels->bytes);
     scene->images.push_back({"shared pixels", pixels});
     return scene;
+}
+
+bool CheckAlphaCooking(const std::filesystem::path& path)
+{
+    std::shared_ptr<Scene>       input  = std::make_shared<Scene>(*MakeScene());
+    std::shared_ptr<ImagePixels> pixels = std::make_shared<ImagePixels>(*input->images[0].pixels);
+    pixels->mips.emplace_back(2 * 2 * 4, 255);
+    input->images[0].pixels = pixels;
+    input->textures.push_back({"opacity", ImageId{0}, {}, {}, PixelFormat::RGBA8Unorm});
+    input->materials[0].m_pBaseColorTexture = TextureId{0};
+    input->materials[0].alphaMode           = AlphaMode::Blend;
+    const Scene      snapshot               = *input;
+    SceneCookOptions options;
+    options.settings.textures.collectAlphaStatistics = true;
+    const SceneCookResult cooked                     = CookScene(input, options);
+    bool                  valid = Check(cooked.status.Succeeded() && cooked.scene, "alpha metadata cooking succeeds");
+    if (cooked.scene)
+    {
+        valid &=
+            Check(cooked.scene->textures[0].alphaMips == std::vector<AlphaMipStatistics>{{16, 0, 0, 0, 0}, {4, 0, 4, 0, 4}},
+                  "cooked mip counts reflect finalized alpha");
+        valid &= Check(scene_test::Same(*input, snapshot) && cooked.scene->images[0].pixels == input->images[0].pixels,
+                       "alpha analysis preserves authored records and immutable pixels");
+        SceneWriteOptions write;
+        write.metadata.processing   = options.settings;
+        const Status saved          = WriteScene(path.string(), *cooked.scene, write);
+        valid                      &= Check(saved.Succeeded(), "write alpha metadata package");
+        const SceneReadResult read  = ReadScene(path.string());
+        valid         &= Check(read.status.Succeeded() && read.scene && scene_test::Same(*read.scene, *cooked.scene)
+                                   && read.metadata.processing.textures.collectAlphaStatistics,
+                               "Texture v5 and Metadata v9 round trip");
+        Scene invalid  = *cooked.scene;
+        invalid.textures[0].alphaMips[0].oneCells  = 17;
+        valid                                     &= Check(!ValidateSceneAsset(invalid), "reject impossible alpha counts");
+    }
+    return valid;
 }
 
 bool CheckConsumedCooking()
@@ -487,6 +524,7 @@ int main(int argc, char** argv)
     bool valid  = CheckCooking(path);
     valid      &= CheckConsumedCooking();
     valid      &= CheckTextureCooking(path);
+    valid      &= CheckAlphaCooking(path);
     valid      &= CheckEnvironmentCooking(path);
     valid      &= CheckEnvironmentFallbacks();
     valid      &= CheckEnvironmentControls();

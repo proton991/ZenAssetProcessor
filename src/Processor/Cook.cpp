@@ -86,6 +86,10 @@ SceneCookResult CookSceneImpl(std::shared_ptr<const Scene> input,
             result.status =
                 detail::ProcessTexturePages(*cooked, options.settings.textures, remaining, result.diagnostics, cancellation);
         }
+        if (result.status.Succeeded() && options.settings.textures.collectAlphaStatistics)
+        {
+            result.status = detail::CollectAlphaStatistics(*cooked, remaining, cancellation);
+        }
         if (result.status.Succeeded() && !detail::FitsValidationBudget(*cooked, remaining))
         {
             result.status = {StatusCode::ResourceLimit, "Cooked scene validation scratch exceeds the allocation budget"};

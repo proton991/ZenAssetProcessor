@@ -178,4 +178,50 @@ ImagePreviewResult MakeImagePreview(const ImageMipView&        mip,
     }
     return result;
 }
+ImageAlphaStatisticsResult AnalyzeImageAlpha(const ImageMipView& mip, const Cancellation* cancellation)
+{
+    ImageAlphaStatisticsResult result;
+    uint64_t                   bytes     = 0;
+    const bool                 supported = mip.format == PixelFormat::RGBA8Unorm || mip.format == PixelFormat::RGBA8Srgb
+                                        || mip.format == PixelFormat::BC7Unorm || mip.format == PixelFormat::BC7Srgb;
+    if (!supported || mip.interpretation != TextureInterpretation::Default)
+    {
+        result.status = {StatusCode::UnsupportedFeature, "Alpha statistics require RGBA8 or BC7 color pixels"};
+    }
+    else if (!GetImageLevelByteSize(mip.format, mip.width, mip.height, bytes) || bytes != mip.bytes.size()
+             || !IsValidImageRegion(mip.region, mip.width, mip.height))
+    {
+        result.status = {StatusCode::InvalidArgument, "Invalid alpha-statistics mip storage or region"};
+    }
+    const uint32_t width  = mip.region == ImageRegion{} ? mip.width : mip.region.width;
+    const uint32_t height = mip.region == ImageRegion{} ? mip.height : mip.region.height;
+    PreviewBlock   caches[4];
+    for (uint32_t y = 0; result.status.Succeeded() && y < height; ++y)
+    {
+        for (uint32_t x = 0; result.status.Succeeded() && x < width; ++x)
+        {
+            uint8_t alpha[4]{};
+            for (uint32_t corner = 0; result.status.Succeeded() && corner < 4; ++corner)
+            {
+                std::array<uint8_t, 4> color{};
+                const uint32_t         px = mip.region.x + (x + (corner & 1u)) % width;
+                const uint32_t         py = mip.region.y + (y + (corner >> 1u)) % height;
+                result.status             = PreviewTexel(mip, px, py, caches[corner], color, cancellation);
+                alpha[corner]             = color[3];
+            }
+            ++result.statistics.texels;
+            result.statistics.zeroTexels += alpha[0] == 0 ? 1u : 0u;
+            result.statistics.oneTexels  += alpha[0] == 255 ? 1u : 0u;
+            const uint8_t minimum         = std::min(std::min(alpha[0], alpha[1]), std::min(alpha[2], alpha[3]));
+            const uint8_t maximum         = std::max(std::max(alpha[0], alpha[1]), std::max(alpha[2], alpha[3]));
+            result.statistics.zeroCells  += maximum == 0 ? 1u : 0u;
+            result.statistics.oneCells   += minimum == 255 ? 1u : 0u;
+        }
+    }
+    if (!result.status.Succeeded())
+    {
+        result.statistics = {};
+    }
+    return result;
+}
 } // namespace zenasset

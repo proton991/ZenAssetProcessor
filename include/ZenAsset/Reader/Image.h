@@ -49,4 +49,17 @@ struct ImagePreviewResult
 ImagePreviewResult MakeImagePreview(const ImageMipView&        mip,
                                     const ImagePreviewOptions& options      = {},
                                     const Cancellation*        cancellation = nullptr);
+
+struct ImageAlphaStatisticsResult
+{
+    Status             status;
+    AlphaMipStatistics statistics;
+};
+
+// Exact endpoint counts for RGBA8/BC7, plus homogeneous bilinear cells. Cell
+// neighbors wrap within the logical region; the resulting mixed-cell count
+// bounds both repeat and clamp/mirror edge filtering, excluding border colors.
+// Uses four fixed decoded-block caches; no full decoded image allocation.
+// Failure clears statistics. Does not generate mips or change authored alpha.
+ImageAlphaStatisticsResult AnalyzeImageAlpha(const ImageMipView& mip, const Cancellation* cancellation = nullptr);
 } // namespace zenasset

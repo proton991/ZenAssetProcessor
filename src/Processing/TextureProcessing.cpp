@@ -1,4 +1,5 @@
 #include "Processing/TextureProcessing.h"
+#include "ZenAsset/Reader/Image.h"
 #include "Processing/Diagnostics.h"
 #include "Processing/TextureImage.h"
 #include "Processing/MaterialTextureUses.h"
@@ -504,6 +505,7 @@ private:
             TextureAsset&  texture = m_scene.textures[variant.targetTexture];
             texture.image          = ImageId{variant.targetImage};
             texture.format         = ViewFormat(m_images[variant.targetImage].pixels->format, variant.use.srgb);
+            texture.alphaMips.clear();
             if (texture.format == PixelFormat::BC5Unorm && variant.targetImage != m_originalImage[variant.sourceImage])
             {
                 texture.interpretation = TextureInterpretation::NormalXYPositiveZ;
@@ -542,5 +544,67 @@ Status ProcessTextures(Scene&                   scene,
 {
     TextureProcessor processor(scene, settings, remainingBytes, diagnostics, cancellation);
     return processor.Run();
+}
+
+Status CollectAlphaStatistics(Scene& scene, uint64_t& remainingBytes, const Cancellation* cancellation)
+{
+    Status status;
+    for (uint32_t index = 0; status.Succeeded() && index < scene.textures.size(); ++index)
+    {
+        TextureAsset& texture = scene.textures[index];
+        bool          opacity = false;
+        for (MaterialAsset& material : scene.materials)
+        {
+            if (material.alphaMode != AlphaMode::Opaque)
+            {
+                for (const MaterialTextureUse& use : MaterialTextureUses(material))
+                {
+                    opacity |= use.opacity && use.texture->value == index;
+                }
+            }
+        }
+        const bool supported = texture.format == PixelFormat::RGBA8Unorm || texture.format == PixelFormat::RGBA8Srgb
+                            || texture.format == PixelFormat::BC7Unorm || texture.format == PixelFormat::BC7Srgb;
+        if (opacity && supported && texture.alphaMips.empty())
+        {
+            const ImagePixels& pixels = *scene.images[texture.image.value].pixels;
+            const uint32_t     levels = pixels.mips.empty() ? 1u : static_cast<uint32_t>(pixels.mips.size());
+            const uint64_t     bytes  = uint64_t(levels) * sizeof(AlphaMipStatistics);
+            if (bytes > remainingBytes)
+            {
+                status = {StatusCode::ResourceLimit, "Alpha statistics exceed the cooking allocation budget"};
+            }
+            else
+            {
+                remainingBytes -= bytes;
+                texture.alphaMips.resize(levels);
+                uint32_t width  = pixels.width;
+                uint32_t height = pixels.height;
+                for (uint32_t level = 0; status.Succeeded() && level < levels; ++level)
+                {
+                    std::span<const uint8_t> data;
+                    if (!GetImageLayerMipBytes(pixels, texture.arrayLayer, level, data))
+                    {
+                        status = {StatusCode::InvalidData, "Alpha statistics require resident mip pixels"};
+                    }
+                    else
+                    {
+                        const ImageMipView mip{texture.format,     width, height, std::as_bytes(data), texture.interpretation,
+                                               texture.atlasRegion};
+                        const ImageAlphaStatisticsResult result = AnalyzeImageAlpha(mip, cancellation);
+                        status                                  = result.status;
+                        texture.alphaMips[level]                = result.statistics;
+                    }
+                    width  = std::max(1u, width / 2);
+                    height = std::max(1u, height / 2);
+                }
+            }
+        }
+        if (status.Succeeded() && cancellation != nullptr && cancellation->IsCancelled())
+        {
+            status = {StatusCode::Cancelled, "Alpha-statistics collection cancelled"};
+        }
+    }
+    return status;
 }
 } // namespace zenasset::detail

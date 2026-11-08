@@ -25,9 +25,10 @@ uint32_t ResourceVersion(ResourceType, const detail::SceneMetadataView& metadata
 {
     const TextureSettings& settings = metadata.build.processing.textures;
     const TextureSettings  defaults;
-    return settings.spatialPages || settings.spatialMaxDimension != defaults.spatialMaxDimension
-                || settings.spatialMaxPages != defaults.spatialMaxPages
-                || settings.spatialMaxImages != defaults.spatialMaxImages
+    return settings.collectAlphaStatistics ? 9
+         : settings.spatialPages || settings.spatialMaxDimension != defaults.spatialMaxDimension
+                   || settings.spatialMaxPages != defaults.spatialMaxPages
+                   || settings.spatialMaxImages != defaults.spatialMaxImages
              ? 8
              : 7;
 }
@@ -39,7 +40,7 @@ uint32_t ResourceVersion(ResourceType, const ImageAsset& image)
 
 uint32_t ResourceVersion(ResourceType, const TextureAsset& texture)
 {
-    return texture.atlasRegion != ImageRegion{} ? 4 : texture.arrayLayer == 0 ? 2 : 3;
+    return !texture.alphaMips.empty() ? 5 : texture.atlasRegion != ImageRegion{} ? 4 : texture.arrayLayer == 0 ? 2 : 3;
 }
 
 class ResourceCounter

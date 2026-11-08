@@ -11,4 +11,6 @@ Status ProcessTextures(Scene&                   scene,
                        uint64_t&                remainingBytes,
                        std::vector<Diagnostic>& diagnostics,
                        const Cancellation*      cancellation);
+
+Status CollectAlphaStatistics(Scene& scene, uint64_t& remainingBytes, const Cancellation* cancellation);
 } // namespace zenasset::detail

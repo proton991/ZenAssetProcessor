@@ -16,8 +16,8 @@ inline constexpr std::array<uint8_t, 8> Magic{'Z', 'E', 'N', 'A', 'S', 'S', 'E',
 
 inline bool SupportedResourceVersion(ResourceType type, uint32_t version)
 {
-    return version == 1 || (type == ResourceType::Metadata && version >= 2 && version <= 8)
-        || (type == ResourceType::Texture && version >= 2 && version <= 4)
+    return version == 1 || (type == ResourceType::Metadata && version >= 2 && version <= 9)
+        || (type == ResourceType::Texture && version >= 2 && version <= 5)
         || (type == ResourceType::Image && version >= 2 && version <= 3) || (type == ResourceType::Environment && version == 2);
 }
 

@@ -132,6 +132,7 @@ bool* ToggleOption(Arguments& arguments, std::string_view name)
     const Entry entries[]{
         {"--vertex-fetch", &arguments.processing.geometry.optimizeVertexFetch},
         {"--texture-mipmaps", &arguments.processing.textures.generateMipmaps},
+        {"--texture-alpha-statistics", &arguments.processing.textures.collectAlphaStatistics},
         {"--normal-bc5", &arguments.processing.textures.compressBC5Normals},
         {"--occlusion-bc4", &arguments.processing.textures.compressBC4Occlusion},
         {"--environment-bc6h", &arguments.processing.textures.compressBC6HEnvironment},
@@ -837,6 +838,7 @@ void Help()
            "               [--vertex-fetch off|on] [--position-bits 0..24]\n"
            "               [--position-max-error METERS] [--position-relative-error FRACTION]\n"
            "               [--texture-mipmaps off|on] [--texture-compression none|bc7]\n"
+           "               [--texture-alpha-statistics off|on]\n"
            "               [--normal-bc5 off|on] [--occlusion-bc4 off|on] [--environment-bc6h off|on]\n"
            "               [--hdr-relative-rmse FRACTION]\n"
            "               [--texture-quality 0..4] [--texture-max-dimension N]\n"
