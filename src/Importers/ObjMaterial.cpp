@@ -1,3 +1,4 @@
+#include "ZenFoundation/Templates/HeapVector.h"
 #include "Importers/ObjImport.h"
 #include "Diagnostics/StageMeasurements.h"
 #include "Importers/ObjNormal.h"
@@ -71,9 +72,9 @@ std::string NormalizeMapOptions(ObjImportState& state, std::string text)
             bool     numeric = true;
             while (numeric && count < 3)
             {
-                size_t             next = end;
-                const std::string  value(OptionToken(text, next));
-                std::vector<float> parsed;
+                size_t                 next = end;
+                const std::string      value(OptionToken(text, next));
+                zen::HeapVector<float> parsed;
                 numeric = !value.empty() && ParseObjNumbers(value, parsed) && parsed.size() == 1;
                 if (numeric)
                 {
@@ -101,8 +102,8 @@ std::string NormalizeMapOptions(ObjImportState& state, std::string text)
             const uint32_t count = option == "-mm" ? 2 : 1;
             for (uint32_t index = 0; index < count; ++index)
             {
-                const std::string  value(OptionToken(text, position));
-                std::vector<float> parsed;
+                const std::string      value(OptionToken(text, position));
+                zen::HeapVector<float> parsed;
                 if (!ParseObjNumbers(value, parsed) || parsed.size() != 1)
                 {
                     state.errors.Fail("Invalid numeric MTL texture option: " + option);
@@ -162,8 +163,8 @@ std::string PrepareMtl(ObjImportState& state, const std::string& source, std::ma
                          || command == "Pm" || command == "illum";
         if (color || scalar)
         {
-            std::vector<float> values;
-            const bool         numeric = ParseObjNumbers(rest, values);
+            zen::HeapVector<float> values;
+            const bool             numeric = ParseObjNumbers(rest, values);
             if (!numeric || values.size() != (color ? 3 : 1))
             {
                 state.errors.Fail("Unsupported or invalid MTL numeric property: " + command);
@@ -272,9 +273,9 @@ ObjMap ObjTextures::Read(const std::string&               name,
         {
             m_state.errors.Fail("MTL scalar/normal maps require linear samples", StatusCode::UnsupportedFeature);
         }
-        std::filesystem::path              path            = ObjPath(m_state, name);
-        const std::filesystem::path        sourceDirectory = ObjPath(m_state, m_state.request.path).parent_path();
-        std::vector<std::filesystem::path> candidates{path.is_absolute() ? path : directory / path};
+        std::filesystem::path                  path            = ObjPath(m_state, name);
+        const std::filesystem::path            sourceDirectory = ObjPath(m_state, m_state.request.path).parent_path();
+        zen::HeapVector<std::filesystem::path> candidates{path.is_absolute() ? path : directory / path};
         if (!path.is_absolute() && AbsoluteUtf8Path(directory) != AbsoluteUtf8Path(sourceDirectory))
         {
             candidates.push_back(sourceDirectory / path);

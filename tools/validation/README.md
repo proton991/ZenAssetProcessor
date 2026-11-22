@@ -21,7 +21,7 @@ Some quality/image commands require NumPy and Pillow. Native process-memory
 measurements use Windows APIs. Rendering commands use the engine's configuration
 and capture lock and restore the original configuration after each batch.
 
-The [optional ZenEngine consumer suite](../../tests/integration/zenengine/README.md)
+The [ZenEngine asset integration tests](https://github.com/proton991/ZenEngine/tree/hybrid-gi/tests/integration/Assets)
 builds `ZenAssetEngineTests`, `ZenAssetTextureIntegrationTest`,
 `EditorAssetRenderingTest`, `GLTFCorpusImport`, `SceneLoadBenchmark`,
 `ScenePackageSmoke`, `ScenePackageBenchmark` and `SceneUploadBenchmark`.

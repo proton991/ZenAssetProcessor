@@ -1,3 +1,4 @@
+#include "ZenFoundation/Templates/HeapVector.h"
 #include "Processor/BuildInternal.h"
 #include "Processor/CookInternal.h"
 #include "ZenAsset/Processor/Assembly.h"
@@ -681,7 +682,7 @@ private:
     SceneBuildResult                     m_result;
     SceneAssembly                        m_assembly;
     std::shared_ptr<const SceneAssembly> m_previous;
-    std::vector<AssemblyJob>             m_jobs;
+    zen::HeapVector<AssemblyJob>         m_jobs;
     std::filesystem::path                m_root, m_output, m_stage;
     uint64_t                             m_planningBytes{0};
 };

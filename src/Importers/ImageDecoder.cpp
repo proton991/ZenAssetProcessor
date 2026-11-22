@@ -1,3 +1,4 @@
+#include "ZenFoundation/Templates/HeapVector.h"
 #include "Importers/ImageDecoder.h"
 #include <webp/decode.h>
 #include <basisu_transcoder.h>
@@ -15,7 +16,7 @@ class EncodedImageSource final : public ImagePayloadSource
 {
 public:
     EncodedImageSource(const uint8_t* data, size_t size, uint64_t decodedBytes, PixelFormat format) :
-        m_encoded(data, data + size), m_decodeBudget(decodedBytes * 2), m_format(format)
+        m_encoded(data, size), m_decodeBudget(decodedBytes * 2), m_format(format)
     {}
 
     Status Read(std::shared_ptr<const ImagePixels>& pixels, const Cancellation* cancellation) const override
@@ -52,9 +53,9 @@ public:
     }
 
 private:
-    std::vector<uint8_t> m_encoded;
-    uint64_t             m_decodeBudget;
-    PixelFormat          m_format;
+    zen::HeapVector<uint8_t> m_encoded;
+    uint64_t                 m_decodeBudget;
+    PixelFormat              m_format;
 };
 
 bool ReservePixels(uint32_t width, uint32_t height, uint32_t copies, ImportErrors& errors)

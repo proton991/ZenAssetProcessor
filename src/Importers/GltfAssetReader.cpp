@@ -1,3 +1,5 @@
+#include "ZenFoundation/Utils/Errors.h"
+#include "ZenFoundation/Templates/HeapVector.h"
 #include <future>
 #include "Diagnostics/StageMeasurements.h"
 #include <cmath>
@@ -491,7 +493,7 @@ static fastgltf::Error ValidateSceneAsset(fastgltf::Asset& asset)
 
     if (referencesValid)
     {
-        std::vector<uint32_t> parents(asset.nodes.size(), 0);
+        zen::HeapVector<uint32_t> parents(asset.nodes.size(), 0);
 
         for (const fastgltf::Node& node : asset.nodes)
         {
@@ -501,7 +503,7 @@ static fastgltf::Error ValidateSceneAsset(fastgltf::Asset& asset)
             }
         }
 
-        std::vector<size_t> pending;
+        zen::HeapVector<size_t> pending;
 
         for (size_t index = 0; index < parents.size(); ++index)
         {
@@ -629,7 +631,7 @@ GltfAssetReader::GltfAssetReader(const BackendContext& context) :
         m_ownedWorkers = std::make_unique<WorkerPool>(std::max(1u, std::thread::hardware_concurrency()));
         m_workers      = m_ownedWorkers.get();
     }
-    assert(m_workers->GetSize() > 0);
+    ZEN_ASSERT(m_workers->GetSize() > 0);
 
     // TODO(glTF KHR_gaussian_splatting): import splat attributes and add a Gaussian renderer.
     // TODO(glTF KHR_interactivity): execute behavior graphs and connect their scene mutations.
@@ -1494,9 +1496,9 @@ void GltfAssetReader::LoadGltfSamplers(Scene* pScene)
 
 using TextureRole = std::pair<const fastgltf::TextureInfo*, bool>;
 
-static std::vector<TextureRole> GetMaterialTextureRoles(const fastgltf::Material& material)
+static zen::HeapVector<TextureRole> GetMaterialTextureRoles(const fastgltf::Material& material)
 {
-    std::vector<TextureRole> roles;
+    zen::HeapVector<TextureRole> roles;
 
     roles.push_back({material.pbrData.baseColorTexture ? &*material.pbrData.baseColorTexture : nullptr, true});
 
@@ -1590,8 +1592,8 @@ static std::vector<TextureRole> GetMaterialTextureRoles(const fastgltf::Material
 static MaterialTextureBinding LoadTextureBinding(const fastgltf::TextureInfo*      source,
                                                  bool                              color,
                                                  const std::vector<TextureAsset>&  textures,
-                                                 const std::vector<uint32_t>&      textureIndices,
-                                                 const std::vector<uint32_t>&      linearIndices,
+                                                 std::span<const uint32_t>         textureIndices,
+                                                 std::span<const uint32_t>         linearIndices,
                                                  const std::map<size_t, uint32_t>& texCoordIndices,
                                                  ImportErrors&                     errors)
 {
@@ -1639,8 +1641,8 @@ static MaterialTextureBinding LoadTextureBinding(const fastgltf::TextureInfo*   
 static void LoadMaterialFeatures(const fastgltf::Material&         source,
                                  MaterialAsset&                    material,
                                  const std::vector<TextureAsset>&  textures,
-                                 const std::vector<uint32_t>&      textureIndices,
-                                 const std::vector<uint32_t>&      linearIndices,
+                                 std::span<const uint32_t>         textureIndices,
+                                 std::span<const uint32_t>         linearIndices,
                                  const std::map<size_t, uint32_t>& texCoordIndices,
                                  ImportErrors&                     errors)
 {
@@ -1904,9 +1906,9 @@ std::shared_ptr<const ImagePixels> GltfAssetReader::DecodeGltfImage(uint32_t ima
     return result;
 }
 
-static std::vector<uint32_t> GetAdditionalLinearTextures(const std::string& json)
+static zen::HeapVector<uint32_t> GetAdditionalLinearTextures(const std::string& json)
 {
-    std::vector<uint32_t> textures;
+    zen::HeapVector<uint32_t> textures;
 
     simdjson::dom::parser parser;
 
@@ -1939,13 +1941,13 @@ void GltfAssetReader::LoadGltfTextures(Scene* pScene)
     ZENASSET_MEASURE_SCOPE(SourceImages);
     const size_t numSourceTextures = m_gltfAsset.textures.size();
 
-    std::vector<uint8_t> colorUsage(numSourceTextures, 0);
+    zen::HeapVector<uint8_t> colorUsage(numSourceTextures, 0);
 
-    std::vector<uint8_t> linearUsage(numSourceTextures, 0);
+    zen::HeapVector<uint8_t> linearUsage(numSourceTextures, 0);
 
     for (const fastgltf::Material& material : m_gltfAsset.materials)
     {
-        const std::vector<TextureRole> roles = GetMaterialTextureRoles(material);
+        const zen::HeapVector<TextureRole> roles = GetMaterialTextureRoles(material);
 
         for (const TextureRole& role : roles)
         {
@@ -1976,7 +1978,7 @@ void GltfAssetReader::LoadGltfTextures(Scene* pScene)
 
     std::map<TextureKey, uint32_t> canonicalTextures;
 
-    std::vector<std::pair<uint32_t, uint32_t>> linearClones;
+    zen::HeapVector<std::pair<uint32_t, uint32_t>> linearClones;
 
     m_textureIndices.resize(numSourceTextures);
 
@@ -2073,8 +2075,8 @@ void GltfAssetReader::LoadGltfTextures(Scene* pScene)
         const bool limitedDecodes = m_maxConcurrentImageDecodes != 0 && m_maxConcurrentImageDecodes < m_workers->GetSize();
         std::counting_semaphore<>        decodeAdmission(limitedDecodes ? m_maxConcurrentImageDecodes : 0);
         std::counting_semaphore<>* const decodeSlots = limitedDecodes ? &decodeAdmission : nullptr;
-        std::vector<uint32_t>                                        imageIndices(m_gltfAsset.images.size(), UINT32_MAX);
-        std::vector<std::future<std::shared_ptr<const ImagePixels>>> futures;
+        zen::HeapVector<uint32_t>        imageIndices(m_gltfAsset.images.size(), UINT32_MAX);
+        zen::HeapVector<std::future<std::shared_ptr<const ImagePixels>>> futures;
         for (uint32_t index : m_uniqueTextureIndices)
         {
             const fastgltf::Texture& source     = m_gltfAsset.textures[index];
@@ -2159,8 +2161,8 @@ static void ReadJsonVector(const simdjson::dom::element& object,
 static void LoadAdditionalMaterialFeatures(const simdjson::dom::element&     document,
                                            MaterialAsset&                    material,
                                            const std::vector<TextureAsset>&  textures,
-                                           const std::vector<uint32_t>&      textureIndices,
-                                           const std::vector<uint32_t>&      linearIndices,
+                                           std::span<const uint32_t>         textureIndices,
+                                           std::span<const uint32_t>         linearIndices,
                                            const std::map<size_t, uint32_t>& texCoordIndices,
                                            ImportErrors&                     errors)
 {
@@ -2249,7 +2251,7 @@ void GltfAssetReader::LoadGltfMaterials(Scene* pScene)
     {
         for (const fastgltf::Primitive& primitive : mesh.primitives)
         {
-            std::vector<const fastgltf::Attribute*> coordinateAttributes;
+            zen::HeapVector<const fastgltf::Attribute*> coordinateAttributes;
 
             for (const fastgltf::Attribute& attribute : primitive.attributes)
             {
@@ -2322,7 +2324,7 @@ void GltfAssetReader::LoadGltfMaterials(Scene* pScene)
         m_errors.Fail("Failed to parse glTF material extension metadata");
     }
 
-    std::vector<simdjson::dom::element> sourceMaterials;
+    zen::HeapVector<simdjson::dom::element> sourceMaterials;
 
     simdjson::dom::array sourceArray;
 
@@ -2502,11 +2504,11 @@ bool GltfAssetReader::LoadPrimitive(const fastgltf::Primitive& primitive,
 
             // Unlit materials consume only base color; retained lighting-extension maps do
             // not impose coordinate requirements on a primitive that cannot sample them.
-            const std::vector<TextureRole> roles =
+            const zen::HeapVector<TextureRole> roles =
                 material.unlit
-                    ? std::vector<TextureRole>{{material.pbrData.baseColorTexture ? &*material.pbrData.baseColorTexture
-                                                                                  : nullptr,
-                                                true}}
+                    ? zen::HeapVector<TextureRole>{{material.pbrData.baseColorTexture ? &*material.pbrData.baseColorTexture
+                                                                                      : nullptr,
+                                                    true}}
                     : GetMaterialTextureRoles(material);
 
             for (const TextureRole& role : roles)
@@ -2715,7 +2717,7 @@ GltfAssetReader::PrimitiveData GltfAssetReader::ProcessPrimitive(const fastgltf:
     }
     if (result.valid)
     {
-        std::vector<std::pair<uint32_t, const fastgltf::Accessor*>> texCoords;
+        zen::HeapVector<std::pair<uint32_t, const fastgltf::Accessor*>> texCoords;
         const uint32_t texCoordCount = static_cast<uint32_t>(m_texCoordIndices.size());
         for (const fastgltf::Attribute& attribute : primitive.attributes)
         {
@@ -2814,7 +2816,7 @@ GltfAssetReader::PrimitiveData GltfAssetReader::ProcessPrimitive(const fastgltf:
 void GltfAssetReader::LoadGltfMeshes(Scene* pScene)
 {
     ZENASSET_MEASURE_SCOPE(SourceMeshes);
-    std::vector<const fastgltf::Primitive*> primitives;
+    zen::HeapVector<const fastgltf::Primitive*> primitives;
     for (const fastgltf::Mesh& mesh : m_gltfAsset.meshes)
     {
         for (const fastgltf::Primitive& primitive : mesh.primitives)
@@ -2825,8 +2827,8 @@ void GltfAssetReader::LoadGltfMeshes(Scene* pScene)
             }
         }
     }
-    const size_t                            window = std::min(primitives.size(), std::max(size_t(1), m_workers->GetSize() * 2));
-    std::vector<std::future<PrimitiveData>> pending;
+    const size_t window = std::min(primitives.size(), std::max(size_t(1), m_workers->GetSize() * 2));
+    zen::HeapVector<std::future<PrimitiveData>> pending;
     if (ResizeGeometryVector(pending, window, m_errors)
         && ReserveGeometryVector(pScene->meshes, m_gltfAsset.meshes.size(), m_errors))
     {

@@ -1,3 +1,4 @@
+#include "ZenFoundation/Templates/HeapVector.h"
 #include "Importers/FbxAnimation.h"
 #include "Format/AnimatedMaterial.h"
 #include <algorithm>
@@ -41,9 +42,9 @@ struct BakeTrack
 
 struct BakeFrame
 {
-    GeometryReservation reservation;
-    float               time{0};
-    std::vector<float>  values;
+    GeometryReservation    reservation;
+    float                  time{0};
+    zen::HeapVector<float> values;
 
     BakeFrame()            = default;
     BakeFrame(BakeFrame&&) = default;
@@ -52,7 +53,7 @@ struct BakeFrame
         if (this != &other)
         {
             // Release the previous storage before refunding its reservation.
-            std::vector<float>().swap(values);
+            values      = zen::HeapVector<float>{};
             reservation = std::move(other.reservation);
             time        = other.time;
             values      = std::move(other.values);
@@ -74,17 +75,17 @@ private:
     void          Add(AnimatedObject object, uint32_t index, AnimatedProperty property, uint32_t dimensions);
     void          Layout();
     MaterialAsset CaptureMaterial(const ufbx_material& source);
-    void          CaptureCamera(const ufbx_camera&   camera,
-                                AnimatedProperty     property,
-                                std::vector<float>&  values,
-                                GeometryReservation& reservation);
-    void          CaptureLight(const ufbx_light&    light,
-                               AnimatedProperty     property,
-                               std::vector<float>&  values,
-                               GeometryReservation& reservation);
+    void          CaptureCamera(const ufbx_camera&      camera,
+                                AnimatedProperty        property,
+                                zen::HeapVector<float>& values,
+                                GeometryReservation&    reservation);
+    void          CaptureLight(const ufbx_light&       light,
+                               AnimatedProperty        property,
+                               zen::HeapVector<float>& values,
+                               GeometryReservation&    reservation);
     BakeFrame     Capture(const ufbx_scene& scene, float time);
     BakeFrame     Evaluate(float time);
-    void          Times(const ufbx_anim_stack& stack, std::vector<float>& times, GeometryReservation& reservation);
+    void          Times(const ufbx_anim_stack& stack, zen::HeapVector<float>& times, GeometryReservation& reservation);
     void          Append(const BakeFrame& frame);
     void          Refine(const BakeFrame& left, const BakeFrame& right, uint32_t depth);
     bool          Close(const BakeTrack& track, const float* a, const float* b) const;
@@ -96,12 +97,12 @@ private:
     const AnimationBakeSettings& m_settings;
     ImportErrors&                m_errors;
     GeometryReservation          m_working;
-    std::vector<BakeTrack>       m_tracks;
+    zen::HeapVector<BakeTrack>   m_tracks;
     std::vector<bool>            m_activeTracks;
     size_t                       m_dimensions{0};
     const ufbx_anim_stack*       m_stack{nullptr};
-    std::vector<float>           m_times;
-    std::vector<float>           m_values;
+    zen::HeapVector<float>       m_times;
+    zen::HeapVector<float>       m_values;
     uint64_t                     m_totalValues{0};
 };
 
@@ -125,7 +126,7 @@ void AnimationBaker::Add(AnimatedObject object, uint32_t index, AnimatedProperty
 // helper (geometric-transform or scale-compensation) of an animated parent, or when
 // it does not inherit scale normally and the node it takes scale from animates.
 // state: 0 unknown, 1 static, 2 animated, per typed node id.
-bool NodeAnimated(const ufbx_node& node, const std::vector<uint8_t>& animated, std::vector<uint8_t>& state)
+bool NodeAnimated(const ufbx_node& node, const zen::HeapVector<uint8_t>& animated, zen::HeapVector<uint8_t>& state)
 {
     if (state[node.typed_id] == 0)
     {
@@ -145,7 +146,7 @@ bool NodeAnimated(const ufbx_node& node, const std::vector<uint8_t>& animated, s
     return state[node.typed_id] == 2;
 }
 
-bool WeightsAnimated(const ufbx_node& node, const std::vector<uint8_t>& animated)
+bool WeightsAnimated(const ufbx_node& node, const zen::HeapVector<uint8_t>& animated)
 {
     bool result = false;
     if (node.mesh != nullptr)
@@ -166,9 +167,9 @@ bool WeightsAnimated(const ufbx_node& node, const std::vector<uint8_t>& animated
 // content instead of scene size.
 void AnimationBaker::Layout()
 {
-    GeometryReservation  scratch(m_errors.GetGeometryBudget());
-    std::vector<uint8_t> animated;
-    std::vector<uint8_t> nodeState;
+    GeometryReservation      scratch(m_errors.GetGeometryBudget());
+    zen::HeapVector<uint8_t> animated;
+    zen::HeapVector<uint8_t> nodeState;
     ResizeGeometryVector(animated, m_source.elements.count, m_errors, &scratch);
     ResizeGeometryVector(nodeState, m_source.nodes.count, m_errors, &scratch);
     // GetAnimatedMaterialProperty returns at most four temporary components.
@@ -238,7 +239,7 @@ void AnimationBaker::Layout()
     }
 }
 
-void PushValue(std::vector<float>& values, float value, ImportErrors& errors, GeometryReservation& reservation)
+void PushValue(zen::HeapVector<float>& values, float value, ImportErrors& errors, GeometryReservation& reservation)
 {
     if (ReserveGeometryVector(values, values.size() + 1, errors, &reservation))
     {
@@ -246,18 +247,18 @@ void PushValue(std::vector<float>& values, float value, ImportErrors& errors, Ge
     }
 }
 
-void PushVector(std::vector<float>& values, const ufbx_vec3& vector, ImportErrors& errors, GeometryReservation& reservation)
+void PushVector(zen::HeapVector<float>& values, const ufbx_vec3& vector, ImportErrors& errors, GeometryReservation& reservation)
 {
     PushValue(values, static_cast<float>(vector.x), errors, reservation);
     PushValue(values, static_cast<float>(vector.y), errors, reservation);
     PushValue(values, static_cast<float>(vector.z), errors, reservation);
 }
 
-void CaptureNode(const ufbx_node&     node,
-                 AnimatedProperty     property,
-                 std::vector<float>&  values,
-                 ImportErrors&        errors,
-                 GeometryReservation& reservation)
+void CaptureNode(const ufbx_node&        node,
+                 AnimatedProperty        property,
+                 zen::HeapVector<float>& values,
+                 ImportErrors&           errors,
+                 GeometryReservation&    reservation)
 {
     switch (property)
     {
@@ -317,10 +318,10 @@ MaterialAsset AnimationBaker::CaptureMaterial(const ufbx_material& source)
     return material;
 }
 
-void AnimationBaker::CaptureCamera(const ufbx_camera&   camera,
-                                   AnimatedProperty     property,
-                                   std::vector<float>&  values,
-                                   GeometryReservation& reservation)
+void AnimationBaker::CaptureCamera(const ufbx_camera&      camera,
+                                   AnimatedProperty        property,
+                                   zen::HeapVector<float>& values,
+                                   GeometryReservation&    reservation)
 {
     const bool orthographic = camera.projection_mode == UFBX_PROJECTION_MODE_ORTHOGRAPHIC;
     if (property == AnimatedProperty::CameraAspect)
@@ -356,10 +357,10 @@ void AnimationBaker::CaptureCamera(const ufbx_camera&   camera,
     }
 }
 
-void AnimationBaker::CaptureLight(const ufbx_light&    light,
-                                  AnimatedProperty     property,
-                                  std::vector<float>&  values,
-                                  GeometryReservation& reservation)
+void AnimationBaker::CaptureLight(const ufbx_light&       light,
+                                  AnimatedProperty        property,
+                                  zen::HeapVector<float>& values,
+                                  GeometryReservation&    reservation)
 {
     if (property == AnimatedProperty::LightColor)
     {
@@ -468,7 +469,7 @@ BakeFrame AnimationBaker::Evaluate(float time)
     return frame;
 }
 
-void AnimationBaker::Times(const ufbx_anim_stack& stack, std::vector<float>& times, GeometryReservation& reservation)
+void AnimationBaker::Times(const ufbx_anim_stack& stack, zen::HeapVector<float>& times, GeometryReservation& reservation)
 {
     const double   duration = stack.time_end - stack.time_begin;
     const double   steps    = std::ceil(duration * m_settings.sampleRate);
@@ -563,10 +564,10 @@ bool AnimationBaker::Close(const BakeTrack& track, const float* a, const float* 
 
 bool AnimationBaker::Fits(const BakeFrame& left, const BakeFrame& right, const BakeFrame& sample) const
 {
-    const float         blend = (sample.time - left.time) / (right.time - left.time);
-    bool                fits  = true;
-    GeometryReservation temporary(m_errors.GetGeometryBudget());
-    std::vector<float>  interpolated;
+    const float            blend = (sample.time - left.time) / (right.time - left.time);
+    bool                   fits  = true;
+    GeometryReservation    temporary(m_errors.GetGeometryBudget());
+    zen::HeapVector<float> interpolated;
     for (const BakeTrack& track : m_tracks)
     {
         const float* a        = left.values.data() + track.offset;
@@ -696,7 +697,7 @@ void AnimationBaker::Finish(const ufbx_anim_stack& stack, const BakeFrame& basel
         }
         if (!m_errors.Failed())
         {
-            sampler.times = m_times;
+            sampler.times.assign(m_times.begin(), m_times.end());
             for (size_t frame = 0; frame < m_times.size(); ++frame)
             {
                 const float* values = m_values.data() + frame * m_dimensions + track.offset;
@@ -765,8 +766,8 @@ void AnimationBaker::Run()
                 m_stack = stack;
                 m_times.clear();
                 m_values.clear();
-                GeometryReservation timeStorage(m_errors.GetGeometryBudget());
-                std::vector<float>  times;
+                GeometryReservation    timeStorage(m_errors.GetGeometryBudget());
+                zen::HeapVector<float> times;
                 Times(*stack, times, timeStorage);
                 if (!m_errors.Failed())
                 {

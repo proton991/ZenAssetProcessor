@@ -1,3 +1,4 @@
+#include "ZenFoundation/Templates/HeapVector.h"
 #include "Processing/PageProcessing.h"
 #include "Processing/ArrayPacking.h"
 #include "Processing/MaterialTextureUses.h"
@@ -98,8 +99,8 @@ bool UseOrder(const PrimitiveUse& a, const PrimitiveUse& b)
 
 struct ImageOrder
 {
-    const std::vector<ImageState>& states;
-    bool                           operator()(const AtlasTileInput& a, const AtlasTileInput& b) const
+    const zen::HeapVector<ImageState>& states;
+    bool                               operator()(const AtlasTileInput& a, const AtlasTileInput& b) const
     {
         return states[a.id].group < states[b.id].group || (states[a.id].group == states[b.id].group && a.id < b.id);
     }
@@ -206,9 +207,9 @@ private:
             && Reserve(m_scene.materials.size(), sizeof(uint32_t) + 1) && Reserve(m_scene.meshes.size(), sizeof(uint32_t)))
         {
             m_states.resize(m_scene.images.size());
-            m_textureSeen.resize(m_scene.textures.size(), 0);
-            m_animated.resize(m_scene.materials.size(), 0);
-            m_materialUsed.resize(m_scene.materials.size(), 0);
+            m_textureSeen.resize(m_scene.textures.size());
+            m_animated.resize(m_scene.materials.size());
+            m_materialUsed.resize(m_scene.materials.size());
             m_meshOffset.resize(m_scene.meshes.size());
         }
         uint64_t primitives = 0;
@@ -223,7 +224,7 @@ private:
         }
         if (Active() && Reserve(primitives, 1))
         {
-            m_uvMorph.resize(static_cast<size_t>(primitives), 0);
+            m_uvMorph.resize(static_cast<size_t>(primitives));
         }
         for (size_t image = 0; Active() && image < m_scene.images.size(); ++image)
         {
@@ -595,7 +596,7 @@ private:
         uint64_t retainedPixels = 0;
         if (Reserve(pages.size(), sizeof(uint32_t)))
         {
-            m_pageImages.resize(pages.size(), 0);
+            m_pageImages.resize(pages.size());
             for (const PageMapping& mapping : m_mapping)
             {
                 if (mapping.page != UINT32_MAX)
@@ -687,26 +688,26 @@ private:
         }
     }
 
-    Scene&                      m_scene;
-    const TextureSettings&      m_settings;
-    uint64_t&                   m_remaining;
-    std::vector<Diagnostic>&    m_diagnostics;
-    const Cancellation*         m_cancellation;
-    Status                      m_status;
-    uint64_t                    m_scratch{0};
-    uint64_t                    m_useCount{0};
-    bool                        m_published{false};
-    std::vector<ImageState>     m_states;
-    std::vector<uint8_t>        m_textureSeen;
-    std::vector<uint8_t>        m_materialUsed;
-    std::vector<uint8_t>        m_uvMorph;
-    std::vector<uint32_t>       m_animated;
-    std::vector<uint32_t>       m_meshOffset;
-    std::vector<PrimitiveUse>   m_uses;
-    std::vector<AtlasTileInput> m_inputs;
-    std::vector<ImageAsset>     m_images;
-    std::vector<PageMapping>    m_mapping;
-    std::vector<uint32_t>       m_pageImages;
+    Scene&                          m_scene;
+    const TextureSettings&          m_settings;
+    uint64_t&                       m_remaining;
+    std::vector<Diagnostic>&        m_diagnostics;
+    const Cancellation*             m_cancellation;
+    Status                          m_status;
+    uint64_t                        m_scratch{0};
+    uint64_t                        m_useCount{0};
+    bool                            m_published{false};
+    zen::HeapVector<ImageState>     m_states;
+    zen::HeapVector<uint8_t>        m_textureSeen;
+    zen::HeapVector<uint8_t>        m_materialUsed;
+    zen::HeapVector<uint8_t>        m_uvMorph;
+    zen::HeapVector<uint32_t>       m_animated;
+    zen::HeapVector<uint32_t>       m_meshOffset;
+    zen::HeapVector<PrimitiveUse>   m_uses;
+    zen::HeapVector<AtlasTileInput> m_inputs;
+    std::vector<ImageAsset>         m_images;
+    zen::HeapVector<PageMapping>    m_mapping;
+    zen::HeapVector<uint32_t>       m_pageImages;
 };
 } // namespace
 

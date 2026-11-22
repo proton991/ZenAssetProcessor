@@ -1,3 +1,4 @@
+#include "ZenFoundation/Templates/HeapVector.h"
 #include "Processing/TextureProcessing.h"
 #include "ZenAsset/Reader/Image.h"
 #include "Processing/Diagnostics.h"
@@ -61,8 +62,8 @@ struct Variant
 
 struct ImageOrder
 {
-    const std::vector<Variant>& variants;
-    bool                        operator()(uint32_t left, uint32_t right) const
+    const zen::HeapVector<Variant>& variants;
+    bool                            operator()(uint32_t left, uint32_t right) const
     {
         const Variant& a = variants[left];
         const Variant& b = variants[right];
@@ -288,8 +289,8 @@ private:
         else
         {
             m_bindings.reserve(static_cast<size_t>(maxBindings));
-            m_seen.resize(m_scene.textures.size(), 0);
-            m_animated.resize(m_scene.materials.size(), 0);
+            m_seen.resize(m_scene.textures.size());
+            m_animated.resize(m_scene.materials.size());
             // Conservatively applies to every masked material, including variant and instance bindings.
             FindVertexOpacity();
             for (size_t animationIndex = 0; Active() && animationIndex < m_scene.animations.size(); ++animationIndex)
@@ -387,7 +388,7 @@ private:
             m_order.resize(m_variants.size());
             std::iota(m_order.begin(), m_order.end(), 0u);
             std::sort(m_order.begin(), m_order.end(), ImageOrder{m_variants});
-            m_originalImage.resize(m_scene.images.size(), UINT32_MAX);
+            m_originalImage = zen::HeapVector<uint32_t>(m_scene.images.size(), UINT32_MAX);
             m_images.reserve(m_variants.size());
             uint64_t imageRecordBytes = m_variants.size() * sizeof(ImageAsset);
             for (size_t first = 0; Active() && first < m_order.size();)
@@ -517,22 +518,22 @@ private:
         }
     }
 
-    Scene&                   m_scene;
-    const TextureSettings&   m_settings;
-    uint64_t&                m_remaining;
-    std::vector<Diagnostic>& m_diagnostics;
-    const Cancellation*      m_cancellation;
-    Status                   m_status;
-    uint64_t                 m_scratch{0};
-    uint32_t                 m_textureCount{0};
-    bool                     m_vertexOpacity{false};
-    std::vector<Binding>     m_bindings;
-    std::vector<Variant>     m_variants;
-    std::vector<uint8_t>     m_seen;
-    std::vector<uint8_t>     m_animated;
-    std::vector<uint32_t>    m_order;
-    std::vector<uint32_t>    m_originalImage;
-    std::vector<ImageAsset>  m_images;
+    Scene&                    m_scene;
+    const TextureSettings&    m_settings;
+    uint64_t&                 m_remaining;
+    std::vector<Diagnostic>&  m_diagnostics;
+    const Cancellation*       m_cancellation;
+    Status                    m_status;
+    uint64_t                  m_scratch{0};
+    uint32_t                  m_textureCount{0};
+    bool                      m_vertexOpacity{false};
+    zen::HeapVector<Binding>  m_bindings;
+    zen::HeapVector<Variant>  m_variants;
+    zen::HeapVector<uint8_t>  m_seen;
+    zen::HeapVector<uint8_t>  m_animated;
+    zen::HeapVector<uint32_t> m_order;
+    zen::HeapVector<uint32_t> m_originalImage;
+    std::vector<ImageAsset>   m_images;
 };
 } // namespace
 

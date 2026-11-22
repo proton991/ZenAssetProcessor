@@ -1,4 +1,5 @@
 #pragma once
+#include "ZenFoundation/Templates/HeapVector.h"
 #include "Importers/ImportErrors.h"
 #include <tiny_obj_loader.h>
 #include <filesystem>
@@ -49,5 +50,5 @@ private:
 };
 
 void ReadObjMaterials(ObjImportState& state, const std::vector<tinyobj::material_t>& materials);
-bool ParseObjNumbers(const std::string& text, std::vector<float>& values);
+bool ParseObjNumbers(const std::string& text, zen::HeapVector<float>& values);
 } // namespace zenasset

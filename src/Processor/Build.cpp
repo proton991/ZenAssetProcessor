@@ -1,3 +1,4 @@
+#include "ZenFoundation/Templates/HeapVector.h"
 #include "Processor/BuildInternal.h"
 #include "ZenAsset/Processor/Cook.h"
 #include "Importers/AssetHash.h"
@@ -626,7 +627,7 @@ private:
     }
     void Execute()
     {
-        std::vector<std::thread> workers;
+        zen::HeapVector<std::thread> workers;
         for (uint32_t index = 1; index < m_workers; ++index)
         {
             workers.emplace_back(&Batch::Worker, this);
@@ -649,7 +650,7 @@ private:
     const Cancellation*            m_cancellation;
     SceneBuildResult               m_result;
     std::filesystem::path          m_root;
-    std::vector<Plan>              m_plans;
+    zen::HeapVector<Plan>          m_plans;
     uint64_t                       m_planningBytes{0};
     uint32_t                       m_workers{0};
     std::atomic<uint32_t>          m_next{0};

@@ -236,7 +236,7 @@ def prepare(args, root, output):
     execute(document, output, "plain", ["fixture", fixture], "original-fixture")
     preflight_pipeline(document, output, fixture, "OriginalTextures", "textures", ("mesh_zstd",))
     # Small format coverage cases qualify the boundaries, not performance.
-    assets = root / "tests/integration/zenengine/CommonTest/Assets"
+    assets = root / "tests/fixtures"
     controls = [("GltfControl", assets / "texture_roles.gltf"),
                 ("FbxControl", assets / "FBX/combined_morph_skin_ascii.fbx")]
     for name, source in controls:

@@ -1,4 +1,5 @@
 #pragma once
+#include "ZenFoundation/Templates/HeapVector.h"
 #include <algorithm>
 #include <condition_variable>
 #include <cstdint>
@@ -8,7 +9,6 @@
 #include <memory>
 #include <mutex>
 #include <thread>
-#include <vector>
 
 namespace zenasset
 {
@@ -21,7 +21,8 @@ public:
     {
         const uint32_t available = std::max(1u, std::thread::hardware_concurrency());
         const uint32_t count     = workerCount == 0 ? available : std::min(workerCount, available);
-        m_capacity               = count * 2;
+        m_threads.reserve(count);
+        m_capacity = count * 2;
         for (uint32_t index = 0; index < count; ++index)
         {
             m_threads.emplace_back(&WorkerPool::Run, this);
@@ -91,7 +92,7 @@ private:
     std::condition_variable           m_work;
     std::condition_variable           m_space;
     std::deque<std::function<void()>> m_queue;
-    std::vector<std::thread>          m_threads;
+    zen::HeapVector<std::thread>      m_threads;
     size_t                            m_capacity{1};
     bool                              m_stopping{false};
 };

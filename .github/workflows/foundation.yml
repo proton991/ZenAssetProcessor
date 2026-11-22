@@ -1,0 +1,25 @@
+name: Foundation compatibility
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  processor:
+    runs-on: windows-2022
+    strategy:
+      matrix:
+        foundation: [main, v0.1.0]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: proton991/ZenFoundation
+          ref: ${{ matrix.foundation }}
+          path: dependencies/ZenFoundation
+      - uses: ilammy/msvc-dev-cmd@v1
+      - shell: pwsh
+        run: |
+          cmake -S . -B build/ci -G Ninja -DCMAKE_BUILD_TYPE=Release -DZEN_FOUNDATION_SOURCE_DIR="$pwd/dependencies/ZenFoundation" -DZENASSET_BUILD_PROCESSOR=ON -DZENASSET_BUILD_TESTING=ON -DZENASSET_BUILD_CLI=ON
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cmake --build build/ci -j 2
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          ctest --test-dir build/ci --output-on-failure

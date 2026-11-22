@@ -1,6 +1,6 @@
 #pragma once
 #include <atomic>
-#include <cassert>
+#include "ZenFoundation/Utils/Errors.h"
 #include <cstddef>
 #include <cstdint>
 #include <utility>
@@ -41,7 +41,7 @@ public:
     void Release(uint64_t bytes)
     {
         [[maybe_unused]] const uint64_t previous = m_used.fetch_sub(bytes, std::memory_order_relaxed);
-        assert(previous >= bytes);
+        ZEN_ASSERT(previous >= bytes);
     }
     uint64_t Used() const
     {

@@ -1,3 +1,4 @@
+#include "ZenFoundation/Templates/HeapVector.h"
 #include "Processing/AtlasPacking.h"
 #include <algorithm>
 #include <bit>
@@ -388,10 +389,10 @@ private:
     uint64_t                        m_owned{0};
     uint64_t                        m_scratch{0};
     uint32_t                        m_mipCount{0};
-    std::vector<uint32_t>           m_order;
-    std::vector<Rectangle>          m_rectangles;
-    std::vector<Shelf>              m_shelves;
-    std::vector<PageLayout>         m_layouts;
+    zen::HeapVector<uint32_t>       m_order;
+    zen::HeapVector<Rectangle>      m_rectangles;
+    zen::HeapVector<Shelf>          m_shelves;
+    zen::HeapVector<PageLayout>     m_layouts;
 };
 } // namespace
 

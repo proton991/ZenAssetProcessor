@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <cassert>
+#include "ZenFoundation/Utils/Errors.h"
 #include <span>
 
 namespace zenasset::detail
@@ -789,7 +789,7 @@ NormalPhaseAxis MakeNormalPhaseAxis(uint32_t anchor, uint32_t fineExtent, uint32
     }
     else
     {
-        assert(extent == fineExtent / 2);
+        ZEN_ASSERT(extent == fineExtent / 2);
         result.base   = anchor / 2;
         result.scale  = double(extent) / fineExtent;
         result.offset = (double(anchor % 2) + 0.5) * 0.5 - (linear ? 0.5 : 0);
@@ -856,7 +856,7 @@ NormalPhaseCuts MakeNormalPhaseCuts(const NormalPhaseAxis& fine, const NormalPha
                        == result.values.begin() + result.count)
             {
                 // There is at most one fine nearest cut and one coarse cut.
-                assert(result.count < result.values.size());
+                ZEN_ASSERT(result.count < result.values.size());
                 result.values[result.count++] = phase;
             }
         }
@@ -892,7 +892,7 @@ void AddNormalNearestState(const NormalPhaseAxis& fine,
         if (std::find(states.values.begin(), states.values.begin() + states.count, state)
             == states.values.begin() + states.count)
         {
-            assert(states.count < states.values.size());
+            ZEN_ASSERT(states.count < states.values.size());
             states.values[states.count++] = state;
         }
     }

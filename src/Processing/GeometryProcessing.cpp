@@ -1,3 +1,4 @@
+#include "ZenFoundation/Templates/HeapVector.h"
 #include "Processing/GeometryProcessing.h"
 #include "Format/SceneTransforms.h"
 #include <algorithm>
@@ -126,11 +127,11 @@ bool HasAuthoredDomain(const Scene& scene, const PrimitiveRef& ref)
     return needed;
 }
 
-template <class T> Status Permute(std::vector<T>&              values,
-                                  size_t                       offset,
-                                  const std::vector<uint32_t>& order,
-                                  std::vector<uint8_t>&        visited,
-                                  const Cancellation*          cancellation)
+template <class T> Status Permute(std::vector<T>&                  values,
+                                  size_t                           offset,
+                                  const zen::HeapVector<uint32_t>& order,
+                                  zen::HeapVector<uint8_t>&        visited,
+                                  const Cancellation*              cancellation)
 {
     Status   status;
     uint64_t steps = 0;
@@ -162,10 +163,10 @@ template <class T> Status Permute(std::vector<T>&              values,
     return status;
 }
 
-Status PermuteAttributes(VertexAttributeAsset&        attribute,
-                         const std::vector<uint32_t>& order,
-                         std::vector<uint8_t>&        visited,
-                         const Cancellation*          cancellation)
+Status PermuteAttributes(VertexAttributeAsset&            attribute,
+                         const zen::HeapVector<uint32_t>& order,
+                         zen::HeapVector<uint8_t>&        visited,
+                         const Cancellation*              cancellation)
 {
     Status   status;
     uint64_t steps = 0;
@@ -201,11 +202,11 @@ Status PermuteAttributes(VertexAttributeAsset&        attribute,
     return status;
 }
 
-Status OptimizeGroup(Scene&                           scene,
-                     const std::vector<PrimitiveRef>& refs,
-                     const RangeGroup&                group,
-                     uint64_t&                        remaining,
-                     const Cancellation*              cancellation)
+Status OptimizeGroup(Scene&                               scene,
+                     const zen::HeapVector<PrimitiveRef>& refs,
+                     const RangeGroup&                    group,
+                     uint64_t&                            remaining,
+                     const Cancellation*                  cancellation)
 {
     Status              status;
     Scratch             scratch(remaining);
@@ -218,7 +219,7 @@ Status OptimizeGroup(Scene&                           scene,
     }
     if (status.Succeeded())
     {
-        std::vector<IndexRange> ranges;
+        zen::HeapVector<IndexRange> ranges;
         ranges.reserve(group.end - group.begin);
         for (size_t index = group.begin; index < group.end; ++index)
         {
@@ -243,10 +244,10 @@ Status OptimizeGroup(Scene&                           scene,
             }
         }
         ranges.resize(rangeCount);
-        std::vector<uint32_t> remap(first.count, UINT32_MAX);
-        std::vector<uint32_t> order(first.count);
-        std::vector<uint8_t>  visited(first.count);
-        uint32_t              next = 0;
+        zen::HeapVector<uint32_t> remap(first.count, UINT32_MAX);
+        zen::HeapVector<uint32_t> order(first.count);
+        zen::HeapVector<uint8_t>  visited(first.count);
+        uint32_t                  next = 0;
         for (const IndexRange& range : ranges)
         {
             for (uint32_t index = 0; status.Succeeded() && index < range.count; ++index)
@@ -359,7 +360,7 @@ bool NodeAnimated(const Scene& scene, uint32_t node)
     }
     return animated;
 }
-bool UnsafeQuantization(const Scene& scene, const std::vector<PrimitiveRef>& refs, const RangeGroup& group)
+bool UnsafeQuantization(const Scene& scene, const zen::HeapVector<PrimitiveRef>& refs, const RangeGroup& group)
 {
     bool unsafe = false;
     for (size_t index = group.begin; index < group.end; ++index)
@@ -389,12 +390,12 @@ bool UnsafeQuantization(const Scene& scene, const std::vector<PrimitiveRef>& ref
     return unsafe;
 }
 
-bool ErrorWithinBound(const Scene&             scene,
-                      const PrimitiveRef&      ref,
-                      const std::vector<Vec3>& quantized,
-                      const Matrix&            world,
-                      const GeometrySettings&  settings,
-                      const Cancellation*      cancellation)
+bool ErrorWithinBound(const Scene&                 scene,
+                      const PrimitiveRef&          ref,
+                      const zen::HeapVector<Vec3>& quantized,
+                      const Matrix&                world,
+                      const GeometrySettings&      settings,
+                      const Cancellation*          cancellation)
 {
     double minimum[3]{INFINITY, INFINITY, INFINITY};
     double maximum[3]{-INFINITY, -INFINITY, -INFINITY};
@@ -436,13 +437,13 @@ bool ErrorWithinBound(const Scene&             scene,
     return valid;
 }
 
-Status QuantizeGroup(Scene&                           scene,
-                     const std::vector<PrimitiveRef>& refs,
-                     const RangeGroup&                group,
-                     const GeometrySettings&          settings,
-                     uint64_t&                        remaining,
-                     std::vector<Diagnostic>&         diagnostics,
-                     const Cancellation*              cancellation)
+Status QuantizeGroup(Scene&                               scene,
+                     const zen::HeapVector<PrimitiveRef>& refs,
+                     const RangeGroup&                    group,
+                     const GeometrySettings&              settings,
+                     uint64_t&                            remaining,
+                     std::vector<Diagnostic>&             diagnostics,
+                     const Cancellation*                  cancellation)
 {
     Status              status;
     const PrimitiveRef& ref = refs[group.begin];
@@ -460,9 +461,9 @@ Status QuantizeGroup(Scene&                           scene,
         }
         else
         {
-            std::vector<Vec3> quantized(ref.count);
-            double            minimum[3]{INFINITY, INFINITY, INFINITY};
-            double            maximum[3]{-INFINITY, -INFINITY, -INFINITY};
+            zen::HeapVector<Vec3> quantized(ref.count);
+            double                minimum[3]{INFINITY, INFINITY, INFINITY};
+            double                maximum[3]{-INFINITY, -INFINITY, -INFINITY};
             for (uint32_t index = 0; index < ref.count; ++index)
             {
                 for (size_t component = 0; component < 3; ++component)
@@ -568,8 +569,8 @@ Status ProcessGeometry(Scene&                   scene,
         }
         else
         {
-            std::vector<PrimitiveRef> refs;
-            std::vector<RangeGroup>   groups;
+            zen::HeapVector<PrimitiveRef> refs;
+            zen::HeapVector<RangeGroup>   groups;
             refs.reserve(static_cast<size_t>(count));
             groups.reserve(static_cast<size_t>(count));
             for (uint32_t mesh = 0; mesh < scene.meshes.size(); ++mesh)

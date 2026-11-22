@@ -1,3 +1,4 @@
+#include "ZenFoundation/Templates/HeapVector.h"
 #include "Processing/SceneAssetProcessing.h"
 #include "Diagnostics/StageMeasurements.h"
 #include <algorithm>
@@ -7,9 +8,9 @@ namespace zenasset
 namespace
 {
 // Target count of each mesh, the largest over its morph primitives.
-std::vector<uint32_t> MorphTargetCounts(const Scene& asset)
+zen::HeapVector<uint32_t> MorphTargetCounts(const Scene& asset)
 {
-    std::vector<uint32_t> counts(asset.meshes.size(), 0u);
+    zen::HeapVector<uint32_t> counts(asset.meshes.size(), 0u);
     for (const MorphPrimitiveAsset& morph : asset.morphPrimitives)
     {
         if (morph.mesh < counts.size())
@@ -40,7 +41,7 @@ bool ProcessImportedAsset(Scene& asset, SceneImportResult& result, const std::st
     }
     else
     {
-        const std::vector<uint32_t> targets = MorphTargetCounts(asset);
+        const zen::HeapVector<uint32_t> targets = MorphTargetCounts(asset);
         for (uint32_t meshIndex = 0; meshIndex < asset.meshes.size(); ++meshIndex)
         {
             MeshAsset& mesh = asset.meshes[meshIndex];

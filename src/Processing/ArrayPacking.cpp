@@ -1,3 +1,4 @@
+#include "ZenFoundation/Templates/HeapVector.h"
 #include "Processing/ArrayPacking.h"
 #include "Format/BlockValidation.h"
 #include <algorithm>
@@ -262,8 +263,8 @@ private:
     uint64_t&                       m_remaining;
     const Cancellation*             m_cancellation;
     ArrayPackResult                 m_result;
-    std::vector<uint32_t>           m_order;
-    std::vector<PagePlan>           m_plans;
+    zen::HeapVector<uint32_t>       m_order;
+    zen::HeapVector<PagePlan>       m_plans;
     uint64_t                        m_owned{0};
     uint64_t                        m_scratch{0};
 };

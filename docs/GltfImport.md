@@ -142,5 +142,5 @@ standalone smoke fixtures; it is not a claim that every exporter/extension
 combination has been exhaustively tested.
 
 Additional historical semantic/consumer tests are owned under
-[tests/integration/zenengine](../tests/integration/zenengine/README.md) and are
+[ZenEngine asset integration tests](https://github.com/proton991/ZenEngine/tree/hybrid-gi/tests/integration/Assets) and are
 opt-in. Their rendering results are not part of this standalone import contract.

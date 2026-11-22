@@ -1,3 +1,4 @@
+#include "ZenFoundation/Templates/HeapVector.h"
 #include "Importers/AssetHash.h"
 #include "Diagnostics/StageMeasurements.h"
 #include "Importers/AssetPaths.h"
@@ -85,17 +86,17 @@ private:
     void                   CamerasAndLights();
     void                   CheckFeatures();
 
-    const SceneImportRequest&                 m_request;
-    WorkerPool*                               m_pool;
-    const ufbx_scene&                         m_source;
-    SceneImportResult&                        m_report;
-    ImportErrors                              m_errors;
-    std::unique_ptr<Scene>                    m_asset;
-    std::vector<std::string>                  m_uvSets;
-    std::vector<uint32_t>                     m_imageFiles;
-    std::vector<SceneDependency>              m_imageDependencies;
-    std::vector<std::vector<SceneDependency>> m_imageFallbacks;
-    std::vector<PackedMaterial>               m_packing;
+    const SceneImportRequest&                         m_request;
+    WorkerPool*                                       m_pool;
+    const ufbx_scene&                                 m_source;
+    SceneImportResult&                                m_report;
+    ImportErrors                                      m_errors;
+    std::unique_ptr<Scene>                            m_asset;
+    zen::HeapVector<std::string>                      m_uvSets;
+    zen::HeapVector<uint32_t>                         m_imageFiles;
+    zen::HeapVector<SceneDependency>                  m_imageDependencies;
+    zen::HeapVector<zen::HeapVector<SceneDependency>> m_imageFallbacks;
+    zen::HeapVector<PackedMaterial>                   m_packing;
 };
 
 void FbxReader::Warn(const std::string& object, const std::string& message)
@@ -377,7 +378,7 @@ bool OpensOutsideScene(const std::string& path, const std::filesystem::path& sce
 // Texture locations in preference order: ufbx's path relative to this file, the
 // authored absolute path, then the bare file name beside the FBX, which finds
 // textures of relocated assets whose recorded paths are stale.
-std::vector<std::string> TextureCandidates(const ufbx_texture_file& source, const std::string& scenePath)
+zen::HeapVector<std::string> TextureCandidates(const ufbx_texture_file& source, const std::string& scenePath)
 {
     const std::string relative = FbxText(source.relative_filename);
     const std::string absolute = FbxText(source.absolute_filename);
@@ -389,7 +390,7 @@ std::vector<std::string> TextureCandidates(const ufbx_texture_file& source, cons
                       : std::string()};
     const std::filesystem::path directory =
         std::filesystem::u8path(AbsoluteUtf8Path(std::filesystem::u8path(scenePath))).parent_path();
-    std::vector<std::string> candidates;
+    zen::HeapVector<std::string> candidates;
     for (const std::string& option : options)
     {
         const std::string path = option.empty() ? option : AbsoluteUtf8Path(std::filesystem::u8path(option));
@@ -484,7 +485,7 @@ void FbxReader::Images()
     m_errors.SetStage(SceneImportStage::DecodingTextures);
     m_imageDependencies.resize(m_imageFiles.size());
     m_imageFallbacks.resize(m_imageFiles.size());
-    std::vector<std::future<void>> pending;
+    zen::HeapVector<std::future<void>> pending;
     for (uint32_t index = 0; !m_errors.Failed() && index < m_imageFiles.size(); ++index)
     {
         if (m_pool != nullptr && m_pool->GetSize() > 0)
@@ -513,7 +514,7 @@ void FbxReader::Images()
             m_asset->dependencies.push_back(dependency);
         }
     }
-    for (const std::vector<SceneDependency>& fallbacks : m_imageFallbacks)
+    for (const zen::HeapVector<SceneDependency>& fallbacks : m_imageFallbacks)
     {
         for (const SceneDependency& dependency : fallbacks)
         {
@@ -553,8 +554,8 @@ void FbxReader::Images()
 
 void FbxReader::NormalMaps()
 {
-    std::vector<TextureId> converted(m_asset->textures.size());
-    std::vector<ImageId>   convertedImages(m_asset->images.size());
+    zen::HeapVector<TextureId> converted(m_asset->textures.size());
+    zen::HeapVector<ImageId>   convertedImages(m_asset->images.size());
     for (MaterialAsset& material : m_asset->materials)
     {
         TextureId& binding = material.m_pNormalTexture;
@@ -607,11 +608,11 @@ void FbxReader::NormalMaps()
 // first use; the linear views are re-derived afterwards.
 struct KeepTexture
 {
-    const Scene&               asset;
-    std::vector<TextureId>&    textures;
-    std::vector<ImageId>&      images;
-    std::vector<TextureAsset>& keptTextures;
-    std::vector<ImageAsset>&   keptImages;
+    const Scene&                asset;
+    zen::HeapVector<TextureId>& textures;
+    zen::HeapVector<ImageId>&   images;
+    std::vector<TextureAsset>&  keptTextures;
+    std::vector<ImageAsset>&    keptImages;
 
     TextureId operator()(TextureId id) const
     {
@@ -643,10 +644,10 @@ struct KeepTexture
 // superseded pixels are neither cached nor uploaded.
 void FbxReader::DropSupersededTextures()
 {
-    std::vector<TextureId>    textures(m_asset->textures.size());
-    std::vector<ImageId>      images(m_asset->images.size());
-    std::vector<TextureAsset> keptTextures;
-    std::vector<ImageAsset>   keptImages;
+    zen::HeapVector<TextureId> textures(m_asset->textures.size());
+    zen::HeapVector<ImageId>   images(m_asset->images.size());
+    std::vector<TextureAsset>  keptTextures;
+    std::vector<ImageAsset>    keptImages;
     for (MaterialAsset& material : m_asset->materials)
     {
         const MaterialAsset source = material;
@@ -799,10 +800,10 @@ MeshResult FbxReader::ProcessMesh(uint32_t index)
     {
         m_errors.Fail("FBX mesh exceeds 32-bit geometry limits: " + result.mesh.name, SceneImportStatus::ResourceLimit);
     }
-    std::vector<uint32_t>           triangle;
-    std::vector<const ufbx_uv_set*> coordinateSets;
-    std::vector<uint32_t>           corners;
-    size_t                          parts = 0;
+    zen::HeapVector<uint32_t>           triangle;
+    zen::HeapVector<const ufbx_uv_set*> coordinateSets;
+    zen::HeapVector<uint32_t>           corners;
+    size_t                              parts = 0;
     for (const ufbx_mesh_part& part : source.material_parts)
     {
         parts += part.num_faces > 0 ? 1 : 0;
@@ -1051,10 +1052,10 @@ void FbxReader::Meshes()
     ZENASSET_MEASURE_SCOPE(SourceMeshes);
     m_errors.SetStage(SceneImportStage::ProcessingMeshes);
     ReserveMeshOutput();
-    GeometryReservation                  working(m_errors.GetGeometryBudget());
-    const bool                           parallel = m_pool != nullptr && m_pool->GetSize() > 0;
-    const size_t                         window   = parallel ? m_pool->GetSize() * 2 : 1;
-    std::vector<std::future<MeshResult>> pending;
+    GeometryReservation                      working(m_errors.GetGeometryBudget());
+    const bool                               parallel = m_pool != nullptr && m_pool->GetSize() > 0;
+    const size_t                             window   = parallel ? m_pool->GetSize() * 2 : 1;
+    zen::HeapVector<std::future<MeshResult>> pending;
     ResizeGeometryVector(pending, window, m_errors, &working);
     size_t queued = 0;
     for (size_t index = 0; index < m_source.meshes.count && (index < queued || !m_errors.Failed()); ++index)

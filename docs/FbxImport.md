@@ -163,6 +163,6 @@ source-evaluator parity for every scene. The focused outcomes and admission
 boundaries are recorded in [ImportGeometryBudgetVerification.md](ImportGeometryBudgetVerification.md).
 
 The larger historical semantic and consumer fixtures are owned under
-[tests/integration/zenengine](../tests/integration/zenengine/README.md) and remain
+[ZenEngine asset integration tests](https://github.com/proton991/ZenEngine/tree/hybrid-gi/tests/integration/Assets) and remain
 opt-in. Renderer, GPU upload and editor behavior are outside this standalone
 contract.

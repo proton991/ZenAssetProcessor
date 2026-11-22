@@ -1,3 +1,4 @@
+#include "ZenFoundation/Templates/HeapVector.h"
 #include "Importers/ObjSceneImporter.h"
 #include "Diagnostics/StageMeasurements.h"
 #include "Importers/ObjImport.h"
@@ -14,7 +15,7 @@
 
 namespace zenasset
 {
-bool ParseObjNumbers(const std::string& text, std::vector<float>& values)
+bool ParseObjNumbers(const std::string& text, zen::HeapVector<float>& values)
 {
     bool               valid = true;
     std::istringstream stream(text);
@@ -139,8 +140,8 @@ struct ObjRun
 };
 struct ObjDocument
 {
-    std::string         normalized;
-    std::vector<ObjRun> runs;
+    std::string             normalized;
+    zen::HeapVector<ObjRun> runs;
 };
 std::string Trim(std::string text)
 {
@@ -148,10 +149,10 @@ std::string Trim(std::string text)
     const size_t last  = text.find_last_not_of(" \t\r");
     return first == std::string::npos ? std::string() : text.substr(first, last - first + 1);
 }
-std::vector<std::string> MaterialFiles(const std::string& text)
+zen::HeapVector<std::string> MaterialFiles(const std::string& text)
 {
-    std::vector<std::string> files;
-    std::string              current;
+    zen::HeapVector<std::string> files;
+    std::string                  current;
     for (size_t index = 0; index < text.size(); ++index)
     {
         const char value = text[index];
@@ -324,11 +325,11 @@ ObjDocument Preflight(ObjImportState& state, const std::string& bytes)
             }
             else
             {
-                std::vector<float> values;
-                bool               valid  = ParseObjNumbers(rest, values);
-                valid                    &= command == "v"  ? (values.size() == 3 || values.size() == 4 || values.size() == 6)
-                                          : command == "vn" ? values.size() == 3
-                                                            : !values.empty() && values.size() <= 3;
+                zen::HeapVector<float> values;
+                bool                   valid = ParseObjNumbers(rest, values);
+                valid &= command == "v"  ? (values.size() == 3 || values.size() == 4 || values.size() == 6)
+                       : command == "vn" ? values.size() == 3
+                                         : !values.empty() && values.size() <= 3;
                 if (!valid)
                 {
                     state.errors.Fail("Invalid numeric OBJ attribute: " + command);
@@ -527,10 +528,10 @@ void ReadGeometry(ObjImportState&                         state,
                   const std::vector<tinyobj::material_t>& materials)
 {
     ZENASSET_MEASURE_SCOPE(SourceMeshes);
-    Scene&                     scene = state.scene;
-    std::map<SmoothKey, Vec3>  smoothNormals;
-    std::vector<SmoothCorner>  smoothCorners;
-    std::map<uint32_t, NodeId> objectNodes;
+    Scene&                        scene = state.scene;
+    std::map<SmoothKey, Vec3>     smoothNormals;
+    zen::HeapVector<SmoothCorner> smoothCorners;
+    std::map<uint32_t, NodeId>    objectNodes;
     scene.vertexTexCoordSets.push_back(0);
     for (const tinyobj::shape_t& shape : shapes)
     {

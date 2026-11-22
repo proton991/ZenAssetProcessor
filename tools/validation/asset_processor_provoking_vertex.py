@@ -11,7 +11,7 @@ import shutil
 import subprocess
 import sys
 
-PROCESSOR_ROOT = Path(__file__).resolve().parents[2]
+from asset_processor_paths import ENGINE_ROOT, PROCESSOR_ROOT
 
 
 def digest(path: Path) -> str:
@@ -38,7 +38,7 @@ def main() -> int:
     if output.exists():
         parser.error('--output must not exist; preserve earlier evidence')
     executable = build / ('provoking_vertex.exe' if os.name == 'nt' else 'provoking_vertex')
-    fixture_root = PROCESSOR_ROOT / 'tests/integration/zenengine/Editor/Fixtures'
+    fixture_root = ENGINE_ROOT / 'tests/integration/Assets/Editor/Fixtures'
     inputs = [executable, build / 'provoking.vert.spv', build / 'provoking.frag.spv',
               fixture_root / 'provoking_scene.gltf', fixture_root / 'provoking_rotated.gltf']
     for path in inputs:

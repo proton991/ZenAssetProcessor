@@ -49,8 +49,8 @@ private:
 };
 
 
-template <class T>
-bool ReserveGeometryVector(std::vector<T>& values, size_t count, ImportErrors& errors, GeometryReservation* scope = nullptr)
+template <class Container>
+bool ReserveGeometryVector(Container& values, size_t count, ImportErrors& errors, GeometryReservation* scope = nullptr)
 {
     bool valid = !errors.Failed();
     if (valid && count > values.capacity())
@@ -65,8 +65,8 @@ bool ReserveGeometryVector(std::vector<T>& values, size_t count, ImportErrors& e
         }
         else
         {
-            valid = scope == nullptr ? errors.ReserveGeometryBytes(requested, sizeof(T))
-                                     : errors.ReserveGeometryBytes(*scope, requested, sizeof(T));
+            valid = scope == nullptr ? errors.ReserveGeometryBytes(requested, sizeof(typename Container::value_type))
+                                     : errors.ReserveGeometryBytes(*scope, requested, sizeof(typename Container::value_type));
         }
         if (valid)
         {
@@ -78,8 +78,8 @@ bool ReserveGeometryVector(std::vector<T>& values, size_t count, ImportErrors& e
     return valid;
 }
 
-template <class T>
-bool ResizeGeometryVector(std::vector<T>& values, size_t count, ImportErrors& errors, GeometryReservation* scope = nullptr)
+template <class Container>
+bool ResizeGeometryVector(Container& values, size_t count, ImportErrors& errors, GeometryReservation* scope = nullptr)
 {
     const bool valid = ReserveGeometryVector(values, count, errors, scope);
     if (valid)

@@ -9,5 +9,5 @@ from pathlib import Path
 VALIDATION_TOOLS = Path(__file__).resolve().parent
 PROCESSOR_ROOT = VALIDATION_TOOLS.parents[1]
 ENGINE_ROOT = Path(os.environ.get("ZENENGINE_SOURCE_DIR", PROCESSOR_ROOT.parent / "ZenEngine")).resolve()
-INTEGRATION_ROOT = PROCESSOR_ROOT / "tests/integration/zenengine"
-CORPUS = INTEGRATION_ROOT / "CommonTest/Assets"
+INTEGRATION_ROOT = ENGINE_ROOT / "tests/integration/Assets"
+CORPUS = PROCESSOR_ROOT / "tests/fixtures"

@@ -1,4 +1,5 @@
 #pragma once
+#include "ZenFoundation/Templates/HeapVector.h"
 #include <atomic>
 #include <filesystem>
 #include <vector>
@@ -87,15 +88,15 @@ private:
     fastgltf::Parser  m_gltfParser;
     fastgltf::Asset   m_gltfAsset;
 
-    std::vector<uint32_t>      m_linearTextureIndices;
-    std::vector<uint32_t>      m_textureIndices;
-    std::vector<uint32_t>      m_samplerIndices;
-    std::vector<uint32_t>      m_uniqueTextureIndices;
-    std::vector<PixelFormat>   m_textureFormats;
-    std::map<size_t, uint32_t> m_texCoordIndices;
-    GltfFileProgress           m_fileProgress;
-    ImportErrors               m_errors;
-    SceneImportSettings        m_settings;
+    zen::HeapVector<uint32_t>    m_linearTextureIndices;
+    zen::HeapVector<uint32_t>    m_textureIndices;
+    zen::HeapVector<uint32_t>    m_samplerIndices;
+    zen::HeapVector<uint32_t>    m_uniqueTextureIndices;
+    zen::HeapVector<PixelFormat> m_textureFormats;
+    std::map<size_t, uint32_t>   m_texCoordIndices;
+    GltfFileProgress             m_fileProgress;
+    ImportErrors                 m_errors;
+    SceneImportSettings          m_settings;
 
     std::unique_ptr<WorkerPool> m_ownedWorkers;
     WorkerPool*                 m_workers{nullptr};

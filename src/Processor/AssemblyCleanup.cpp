@@ -1,3 +1,4 @@
+#include "ZenFoundation/Templates/HeapVector.h"
 #include "ZenAsset/Processor/Assembly.h"
 #include "ZenAsset/Reader/Assembly.h"
 #include "Processor/BuildInternal.h"
@@ -98,10 +99,10 @@ bool EntryLess(const CleanupEntry& a, const CleanupEntry& b)
 {
     return a.path < b.path;
 }
-Status Inventory(const std::filesystem::path&  root,
-                 const AssemblyCleanupOptions& options,
-                 const Cancellation*           cancellation,
-                 std::vector<CleanupEntry>&    entries)
+Status Inventory(const std::filesystem::path&   root,
+                 const AssemblyCleanupOptions&  options,
+                 const Cancellation*            cancellation,
+                 zen::HeapVector<CleanupEntry>& entries)
 {
     Status                                        status = OrdinaryPath(root);
     std::error_code                               error;
@@ -266,13 +267,13 @@ struct RetainedAssembly
     PackageIdentity       identity;
 };
 
-Status Retained(const std::vector<CleanupEntry>& entries,
-                const AssemblyCleanupOptions&    options,
-                const Cancellation*              cancellation,
-                PathSet&                         references,
-                std::vector<RetainedAssembly>&   manifests,
-                PathSet&                         protectedPaths,
-                uint64_t&                        sourcePlanning)
+Status Retained(const zen::HeapVector<CleanupEntry>& entries,
+                const AssemblyCleanupOptions&        options,
+                const Cancellation*                  cancellation,
+                PathSet&                             references,
+                zen::HeapVector<RetainedAssembly>&   manifests,
+                PathSet&                             protectedPaths,
+                uint64_t&                            sourcePlanning)
 {
     Status          status;
     uint64_t        planning  = 0;
@@ -347,15 +348,15 @@ Status Retained(const std::vector<CleanupEntry>& entries,
     return status;
 }
 
-Status Unchanged(const std::filesystem::path&         root,
-                 const AssemblyCleanupOptions&        options,
-                 const Cancellation*                  cancellation,
-                 const std::vector<CleanupEntry>&     expected,
-                 const std::vector<RetainedAssembly>& manifests)
+Status Unchanged(const std::filesystem::path&             root,
+                 const AssemblyCleanupOptions&            options,
+                 const Cancellation*                      cancellation,
+                 const zen::HeapVector<CleanupEntry>&     expected,
+                 const zen::HeapVector<RetainedAssembly>& manifests)
 {
-    std::vector<CleanupEntry> current;
-    Status                    status = Inventory(root, options, cancellation, current);
-    if (status.Succeeded() && current != expected)
+    zen::HeapVector<CleanupEntry> current;
+    Status                        status = Inventory(root, options, cancellation, current);
+    if (status.Succeeded() && !std::ranges::equal(current, expected))
     {
         status = {StatusCode::SourceUnavailable, "Cleanup directory changed during verification"};
     }
@@ -385,12 +386,12 @@ AssemblyCleanupResult Clean(const std::string& text, const AssemblyCleanupOption
     {
         result.status = {StatusCode::ResourceLimit, "Invalid cleanup planning limits"};
     }
-    std::vector<CleanupEntry>     entries;
-    PathSet                       references;
-    PathSet                       protectedPaths;
-    uint64_t                      sourcePlanning = 0;
-    std::vector<CleanupCandidate> candidates;
-    std::vector<RetainedAssembly> manifests;
+    zen::HeapVector<CleanupEntry>     entries;
+    PathSet                           references;
+    PathSet                           protectedPaths;
+    uint64_t                          sourcePlanning = 0;
+    zen::HeapVector<CleanupCandidate> candidates;
+    zen::HeapVector<RetainedAssembly> manifests;
     if (result.status.Succeeded())
     {
         result.status = Inventory(root, options, cancellation, entries);
@@ -484,7 +485,7 @@ AssemblyCleanupResult Clean(const std::string& text, const AssemblyCleanupOption
                 else if (result.status.Succeeded())
                 {
                     result.deleted.push_back(path);
-                    std::vector<CleanupEntry>::iterator found = entries.begin();
+                    zen::HeapVector<CleanupEntry>::iterator found = entries.begin();
                     while (found != entries.end() && found->path != candidate)
                     {
                         ++found;

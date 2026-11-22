@@ -29,7 +29,7 @@ Development use remains unpinned, and release publication is a separate step.
 
 Asset tests, corpus fixtures, quality checks and benchmarks are owned here. See
 [validation tools](tools/validation/README.md) and the optional
-[ZenEngine consumer tests](tests/integration/zenengine/README.md). Standalone tests
+[ZenEngine asset integration tests](https://github.com/proton991/ZenEngine/tree/hybrid-gi/tests/integration/Assets). Standalone tests
 do not require an engine checkout.
 
 ## Build the format and reader
