@@ -407,6 +407,7 @@ private:
             plan.staged     = m_stage / (std::to_string(index) + ".zenasset");
             SceneWriteOptions write;
             write.limits                    = m_options.limits;
+            write.maxImageWorkers           = std::max(1u, m_options.importContext.workerCount);
             write.compression               = plan.job.compression;
             write.maxEncoderBytes           = m_options.maxEncoderBytes;
             write.durable                   = m_options.durable;

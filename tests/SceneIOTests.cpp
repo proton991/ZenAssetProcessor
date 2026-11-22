@@ -425,6 +425,8 @@ bool TestBlockModeValidation(const std::filesystem::path& directory)
         rejected  = ReadScene(bad.string());
         valid    &= Check(rejected.status.code == StatusCode::InvalidData && !rejected.scene,
                           "Valid-checksum package rejects a reserved tiny BC7 mip");
+        valid    &= Check(ReadSceneDeferredImages(bad.string()).status.code == StatusCode::InvalidData,
+                          "Deferred graph rejects invalid pixels before exposing descriptors");
     }
     pixels->width = pixels->height = 1;
     pixels->format                 = PixelFormat::RGBA8Unorm;
@@ -952,13 +954,35 @@ bool TestRuntimeCoordinates(const std::filesystem::path& directory)
     valid &= Check(read.scene && read.scene->vertexTexCoords.empty(), "Runtime reader releases exact redundant UV rows");
     read   = ReadScene(path);
     valid &= Check(read.scene && read.scene->vertexTexCoords.size() == 3, "Ordinary reader preserves UV array shape");
-    source.vertexTexCoords[0][0].x  = -0.0f;
-    valid                          &= Check(WriteScene(path, source).Succeeded(), "Write signed zero coordinate fixture");
-    read                            = ReadSceneDeferredImages(path);
+    SceneWriteOptions compressed;
+    compressed.compression.meshoptimizer = true;
+    source.vertices[1].uv1 = source.vertexTexCoords[1][1] = Vec2(0.25f, -0.5f);
+    valid &= Check(WriteScene(path, source, compressed).Succeeded(), "Write implicit UV rows");
+    read   = ReadScene(path);
+    valid &= Check(read.scene && scene_test::Same(source, *read.scene), "Implicit UV rows preserve canonical values");
+    read   = ReadSceneDeferredImages(path);
+    valid &= Check(read.scene && read.scene->vertexTexCoords.empty() && read.scene->vertices[1].uv1 == source.vertices[1].uv1,
+                   "Runtime reads implicit UV rows from the vertices");
+    std::vector<uint8_t> bytes = LoadBytes(path);
+    const size_t         entry = EntryOffset(bytes, ResourceType::TextureCoordinates);
+    if (Check(entry < bytes.size() && detail::Read32(bytes.data() + entry + 12) == 2, "Duplicate UV payload is omitted"))
+    {
+        const size_t payload = static_cast<size_t>(detail::Read64(bytes.data() + entry + 24));
+        detail::Write64(bytes.data() + payload, source.vertices.size() + 1);
+        RepairChecksums(bytes, entry);
+        valid &= RejectMutated(path, bytes, "Reject implicit UV count inconsistent with the vertex stream");
+    }
+    else
+    {
+        valid = false;
+    }
+    source.vertexTexCoords[0][0].x = -0.0f;
+    valid &= Check(WriteScene(path, source, compressed).Succeeded(), "Write signed zero coordinate fixture");
+    read   = ReadSceneDeferredImages(path);
     valid &= Check(read.scene && read.scene->vertexTexCoords.size() == 3, "Runtime compaction preserves differing UV bits");
     source.vertexTexCoords[0][0].x = 0.0f;
     source.vertexTexCoordSets.push_back(9);
-    valid &= Check(WriteScene(path, source).Succeeded(), "Write sparse coordinate fixture");
+    valid &= Check(WriteScene(path, source, compressed).Succeeded(), "Write sparse coordinate fixture");
     read   = ReadSceneDeferredImages(path);
     valid &= Check(read.scene && read.scene->vertexTexCoords.size() == 3, "Runtime compaction preserves sparse UV layouts");
     return valid;
@@ -1025,6 +1049,18 @@ bool TestDeferredImages(const std::filesystem::path& directory)
         std::shared_ptr<const ImagePixels> lease;
         valid &= Check(ResolveImagePixels(retained, lease).Succeeded(), "Image lease outlives its scene graph");
     }
+    Scene                        leaseScene;
+    std::shared_ptr<ImagePixels> pixels = std::make_shared<ImagePixels>();
+    pixels->width = pixels->height = 512;
+    pixels->format                 = PixelFormat::RGBA8Unorm;
+    pixels->bytes.resize(512 * 512 * 4);
+    leaseScene.images.push_back({"texture", std::move(pixels)});
+    leaseScene.sourceDocument.resize(768u << 10, ' ');
+    SceneReadLimits leaseLimits;
+    leaseLimits.maxAllocationBytes = 2304u << 10;
+    valid &= Check(WriteScene(copy, leaseScene).Succeeded()
+                       && ReadSceneDeferredImages(copy, leaseLimits).status.code == StatusCode::ResourceLimit,
+                   "A texture decoded early must still fit beside the final graph for a later lease");
     valid &= Check(!ReadSceneDeferredImages(std::shared_ptr<const Package>{}).status.Succeeded(), "Reject null package");
     return valid;
 }

@@ -180,6 +180,14 @@ bool CheckScene(const std::filesystem::path& path)
     Scene scene;
     scene.name           = "compressed package";
     scene.sourceDocument = std::string(1ull << 20, ' ');
+    for (uint8_t index = 0; index < 4; ++index)
+    {
+        std::shared_ptr<ImagePixels> image = std::make_shared<ImagePixels>();
+        image->width = image->height = 512;
+        image->format                = PixelFormat::RGBA8Unorm;
+        image->bytes.resize(512 * 512 * 4, index);
+        scene.images.push_back({std::to_string(index), std::move(image)});
+    }
     SceneWriteOptions options;
     options.metadata.buildFingerprint = "compression-test";
     options.compression.transport     = TransportCodec::Zstandard;
@@ -228,11 +236,16 @@ bool CheckScene(const std::filesystem::path& path)
                   "combined allocation exhaustion preserves prior package");
         rejected                             = options;
         rejected.limits.package.maxFileBytes = published.size();
-        valid                 &= Check(WriteScene(path.string(), scene, rejected).Succeeded(),
-                                       "file size budget measures compressed storage instead of raw payload size");
-        const Status repeated  = WriteScene(path.string(), scene, options);
-        valid                 &= Check(repeated.Succeeded() && ReadFile(path) == published,
-                                       "same input and options produce byte-identical compressed packages");
+        valid                     &= Check(WriteScene(path.string(), scene, rejected).Succeeded(),
+                                           "file size budget measures compressed storage instead of raw payload size");
+        SceneWriteOptions serial   = options;
+        serial.maxImageWorkers     = 1;
+        valid                     &= Check(WriteScene(path.string(), scene, serial).Succeeded() && ReadFile(path) == published,
+                                           "Parallel image compression preserves serial package bytes and order");
+        SceneWriteOptions limited  = options;
+        limited.limits.maxAllocationBytes = 12ull << 20;
+        valid &= Check(WriteScene(path.string(), scene, limited).Succeeded() && ReadFile(path) == published,
+                       "Images that fit serially still publish under a tight shared budget");
         Cancellation cancelled;
         cancelled.Cancel();
         valid &= Check(WriteScene(path.string(), scene, options, &cancelled).code == StatusCode::Cancelled

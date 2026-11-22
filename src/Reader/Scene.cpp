@@ -1,6 +1,6 @@
 #include "ZenAsset/Reader/Scene.h"
 #include "Diagnostics/StageMeasurements.h"
-#include "ZenAsset/Format/Validation.h"
+#include "Format/SceneValidation.h"
 #include "Format/SceneArchive.h"
 #include "Format/SceneResources.h"
 #include "Format/PackageLayout.h"
@@ -18,37 +18,18 @@ Status ValidateReadLimits(const Package&         package,
                           uint64_t               objectBytes,
                           uint64_t&              allocationBytes)
 {
-    Status                                status;
-    const std::span<const ResourceRecord> records      = package.Resources();
-    uint64_t                              decodedBytes = 0;
-    if (records.size() > limits.package.maxResources
-        || records.size() > limits.package.maxDirectoryBytes / sizeof(ResourceRecord)
-        || records.size() > (UINT64_MAX - objectBytes) / sizeof(ResourceRecord))
+    Status       status;
+    const size_t count = package.Resources().size();
+    if (!package.FitsReadLimits(limits.package) || count > (UINT64_MAX - objectBytes) / sizeof(ResourceRecord))
     {
-        status = {StatusCode::ResourceLimit, "Scene directory exceeds its configured limits"};
+        status = {StatusCode::ResourceLimit, "Retained package exceeds scene read limits"};
     }
     else
     {
-        allocationBytes = objectBytes + records.size() * sizeof(ResourceRecord);
+        allocationBytes = objectBytes + count * sizeof(ResourceRecord);
         if (allocationBytes > limits.maxAllocationBytes)
         {
             status = {StatusCode::ResourceLimit, "Scene and directory exceed the decoded allocation budget"};
-        }
-    }
-    for (const ResourceRecord& record : records)
-    {
-        if (status.Succeeded())
-        {
-            if (record.offset > limits.package.maxFileBytes || record.storedBytes > limits.package.maxFileBytes - record.offset
-                || record.decodedBytes > limits.package.maxChunkBytes || record.storedBytes > limits.package.maxChunkBytes
-                || record.decodedBytes > limits.package.maxDecodedBytes - decodedBytes)
-            {
-                status = {StatusCode::ResourceLimit, "Retained package exceeds scene read limits"};
-            }
-            else
-            {
-                decodedBytes += record.decodedBytes;
-            }
         }
     }
     return status;
@@ -73,45 +54,21 @@ private:
     std::shared_ptr<const SceneReadLimits> m_limits;
 };
 
-void CompactRuntimeCoordinates(Scene& scene, const Cancellation* cancellation)
-{
-    bool redundant = !scene.vertexTexCoords.empty() && scene.vertexTexCoords.size() == scene.vertices.size()
-                  && scene.vertexTexCoordSets.size() <= 2 && scene.morphPrimitives.empty() && scene.skins.empty();
-    for (size_t index = 0; redundant && index < scene.vertices.size(); ++index)
-    {
-        if ((index & 4095u) == 0 && cancellation != nullptr && cancellation->IsCancelled())
-        {
-            redundant = false;
-            break;
-        }
-        const VertexTextureCoordinates& coordinates = scene.vertexTexCoords[index];
-        const Vertex&                   vertex      = scene.vertices[index];
-        redundant                                   = coordinates.size() == 2;
-        for (size_t slot = 0; redundant && slot < 2; ++slot)
-        {
-            const Vec2& uv = slot == 0 ? vertex.uv0 : vertex.uv1;
-            redundant      = std::bit_cast<uint32_t>(coordinates[slot].x) == std::bit_cast<uint32_t>(uv.x)
-                          && std::bit_cast<uint32_t>(coordinates[slot].y) == std::bit_cast<uint32_t>(uv.y);
-        }
-    }
-    if (redundant)
-    {
-        std::vector<VertexTextureCoordinates>().swap(scene.vertexTexCoords);
-    }
-}
-
 class SceneDecoder
 {
 public:
     SceneDecoder(const Package&                 package,
                  const SceneReadLimits&         limits,
                  const Cancellation*            cancellation,
-                 std::shared_ptr<const Package> deferredPackage = {}) :
+                 std::shared_ptr<const Package> deferredPackage = {},
+                 SceneReadProgress              progress        = {}) :
         m_package(package),
         m_limits(limits),
         m_cancellation(cancellation),
         m_budget(limits.maxAllocationBytes),
-        m_deferredPackage(std::move(deferredPackage))
+        m_validationGeometryBudget(limits.maxRuntimeGeometryBytes),
+        m_deferredPackage(std::move(deferredPackage)),
+        m_progress(progress)
     {}
 
     template <class T> void Decode(ResourceType type, uint32_t index, T& value)
@@ -139,7 +96,8 @@ public:
             m_status          = data.status;
             if (m_status.Succeeded())
             {
-                m_budget -= record->decodedBytes;
+                const uint64_t initialBudget  = m_budget;
+                m_budget                     -= record->decodedBytes;
                 ResourceData               expanded;
                 std::span<const std::byte> canonical = data.bytes;
                 bool                       typedMesh = false;
@@ -191,6 +149,17 @@ public:
                     m_status = archive.Finish();
                 }
                 m_budget += record->decodedBytes + expanded.bytes.size();
+                if constexpr (std::is_same_v<T, ImageAsset>)
+                {
+                    // The decoded chunk coexists first with codec scratch, then
+                    // with the deserialized pixels. Leases use this same decoder.
+                    const uint64_t peak = record->decodedBytes + std::max(data.scratchBytes, initialBudget - m_budget);
+                    m_largestImageLease = std::max(m_largestImageLease, peak);
+                }
+                if (m_status.Succeeded() && m_totalResources != 0)
+                {
+                    ReportDecoded();
+                }
             }
         }
     }
@@ -247,6 +216,11 @@ public:
             }
             if (m_status.Succeeded())
             {
+                for (uint64_t count : found)
+                {
+                    m_totalResources += count;
+                }
+                ReportDecoded();
                 scene.name               = std::move(manifest.name);
                 scene.roots              = std::move(manifest.roots);
                 scene.vertexTexCoordSets = std::move(manifest.texCoordSets);
@@ -284,6 +258,58 @@ public:
     {
         Decode(type, 0, value);
     }
+    void Coordinates(Scene& scene)
+    {
+        const ResourceRecord* record = m_package.Find(detail::ResourceId(ResourceType::TextureCoordinates));
+        if (record != nullptr && record->version == 2)
+        {
+            uint64_t rows = 0;
+            Decode(ResourceType::TextureCoordinates, 0, rows);
+            const uint64_t stride = sizeof(VertexTextureCoordinates) + 2 * sizeof(Vec2);
+            if (m_status.Succeeded()
+                && (rows == 0 || rows != scene.vertices.size() || scene.vertexTexCoordSets.size() != 2
+                    || !scene.morphPrimitives.empty() || !scene.skins.empty()))
+            {
+                m_status = {StatusCode::InvalidData, "Implicit UV rows do not match the scene layout"};
+            }
+            if (m_status.Succeeded() && m_deferredPackage)
+            {
+                // Validation charges three runtime copies of the UVs. Account for
+                // the implicit rows just as it would for a version-one resource.
+                constexpr uint64_t bytesPerVertex = 3 * 2 * sizeof(Vec2);
+                if (rows > m_validationGeometryBudget / bytesPerVertex)
+                {
+                    m_status = {StatusCode::ResourceLimit, "Implicit UV rows exceed the runtime geometry budget"};
+                }
+                else
+                {
+                    m_validationGeometryBudget -= rows * bytesPerVertex;
+                }
+            }
+            else if (m_status.Succeeded() && rows > std::min<uint64_t>(m_budget, SIZE_MAX) / stride)
+            {
+                m_status = {StatusCode::ResourceLimit, "Implicit UV rows exceed the allocation budget"};
+            }
+            else if (m_status.Succeeded())
+            {
+                m_budget -= rows * stride;
+                scene.vertexTexCoords.resize(static_cast<size_t>(rows));
+                for (size_t index = 0; index < rows; ++index)
+                {
+                    if ((index & 4095u) == 0 && m_cancellation != nullptr && m_cancellation->IsCancelled())
+                    {
+                        m_status = {StatusCode::Cancelled, "Scene read cancelled"};
+                        break;
+                    }
+                    scene.vertexTexCoords[index] = {scene.vertices[index].uv0, scene.vertices[index].uv1};
+                }
+            }
+        }
+        else
+        {
+            Single(ResourceType::TextureCoordinates, scene.vertexTexCoords);
+        }
+    }
     void Metadata(Scene& scene)
     {
         detail::SceneMetadata metadata;
@@ -307,15 +333,25 @@ public:
             // All retained graph allocations are now known. Each later lease
             // must fit beside that graph, including its codec and decode scratch.
             m_imageLimits->maxAllocationBytes = m_budget;
+            const uint64_t overhead           = sizeof(ImageAsset) + m_package.Resources().size_bytes();
+            if (overhead > m_budget || m_largestImageLease > m_budget - overhead)
+            {
+                m_status = {StatusCode::ResourceLimit, "Deferred image lease exceeds the remaining allocation budget"};
+            }
         }
         if (m_status.Succeeded() && !detail::FitsValidationBudget(scene, m_budget))
         {
             m_status = {StatusCode::ResourceLimit, "Scene validation scratch exceeds the decoded allocation budget"};
         }
         std::string failure;
-        if (m_status.Succeeded() && !ValidateSceneAsset(scene, m_limits.maxRuntimeGeometryBytes, &failure))
+        if (m_status.Succeeded())
         {
-            m_status = {StatusCode::InvalidData, "Invalid scene resource graph: " + failure};
+            const bool valid = m_deferredPackage ? detail::ValidateSceneGraph(scene, m_validationGeometryBudget, &failure)
+                                                 : ValidateSceneAsset(scene, m_validationGeometryBudget, &failure);
+            if (!valid)
+            {
+                m_status = {StatusCode::InvalidData, "Invalid scene resource graph: " + failure};
+            }
         }
         return m_status;
     }
@@ -325,6 +361,13 @@ public:
     }
 
 private:
+    void ReportDecoded()
+    {
+        if (m_progress.resourceDecoded != nullptr)
+        {
+            m_progress.resourceDecoded(m_progress.user, ++m_completedResources, m_totalResources);
+        }
+    }
     void DeferImage(uint32_t index, ImageAsset& image)
     {
         if (!m_imageLimits && m_budget >= sizeof(SceneReadLimits))
@@ -367,17 +410,23 @@ private:
     const SceneReadLimits&           m_limits;
     const Cancellation*              m_cancellation;
     uint64_t                         m_budget;
+    uint64_t                         m_validationGeometryBudget;
     uint64_t                         m_geometryBytes{0};
     Status                           m_status;
     detail::ResourceCounts           m_counts{};
     BuildMetadata                    m_metadata;
     std::shared_ptr<const Package>   m_deferredPackage;
     std::shared_ptr<SceneReadLimits> m_imageLimits;
+    uint64_t                         m_largestImageLease{0};
+    SceneReadProgress                m_progress;
+    uint64_t                         m_completedResources{0};
+    uint64_t                         m_totalResources{0};
 };
 SceneReadResult ReadSceneImpl(const Package&                 package,
                               const SceneReadLimits&         limits,
                               const Cancellation*            cancellation,
-                              std::shared_ptr<const Package> deferredPackage)
+                              std::shared_ptr<const Package> deferredPackage,
+                              SceneReadProgress              progress)
 {
     SceneReadResult result;
     const bool      runtimeStorage  = bool(deferredPackage);
@@ -392,7 +441,7 @@ SceneReadResult ReadSceneImpl(const Package&                 package,
         SceneReadLimits charged       = limits;
         charged.maxAllocationBytes   -= allocationBytes;
         std::shared_ptr<Scene> scene  = std::make_shared<Scene>();
-        SceneDecoder           decoder(package, charged, cancellation, std::move(deferredPackage));
+        SceneDecoder           decoder(package, charged, cancellation, std::move(deferredPackage), progress);
         result.status = decoder.ReadManifest(*scene);
         if (result.status.Succeeded())
         {
@@ -409,9 +458,9 @@ SceneReadResult ReadSceneImpl(const Package&                 package,
         }
         if (result.status.Succeeded())
         {
-            if (runtimeStorage)
+            if (runtimeStorage && detail::HasRedundantCoordinates(*scene, cancellation))
             {
-                CompactRuntimeCoordinates(*scene, cancellation);
+                std::vector<VertexTextureCoordinates>().swap(scene->vertexTexCoords);
             }
             if (cancellation != nullptr && cancellation->IsCancelled())
             {
@@ -428,14 +477,18 @@ SceneReadResult ReadSceneImpl(const Package&                 package,
 }
 } // namespace
 
-SceneReadResult ReadScene(const Package& package, const SceneReadLimits& limits, const Cancellation* cancellation)
+SceneReadResult ReadScene(const Package&         package,
+                          const SceneReadLimits& limits,
+                          const Cancellation*    cancellation,
+                          SceneReadProgress      progress)
 {
-    return ReadSceneImpl(package, limits, cancellation, {});
+    return ReadSceneImpl(package, limits, cancellation, {}, progress);
 }
 
 SceneReadResult ReadSceneDeferredImages(std::shared_ptr<const Package> package,
                                         const SceneReadLimits&         limits,
-                                        const Cancellation*            cancellation)
+                                        const Cancellation*            cancellation,
+                                        SceneReadProgress              progress)
 {
     SceneReadResult result;
     if (!package)
@@ -444,21 +497,22 @@ SceneReadResult ReadSceneDeferredImages(std::shared_ptr<const Package> package,
     }
     else
     {
-        result = ReadSceneImpl(*package, limits, cancellation, package);
+        result = ReadSceneImpl(*package, limits, cancellation, package, progress);
     }
     return result;
 }
 
 SceneReadResult ReadSceneDeferredImages(const std::string&     path,
                                         const SceneReadLimits& limits,
-                                        const Cancellation*    cancellation)
+                                        const Cancellation*    cancellation,
+                                        SceneReadProgress      progress)
 {
     const PackageResult opened = OpenPackage(path, limits.package, cancellation);
     SceneReadResult     result;
     result.status = opened.status;
     if (result.status.Succeeded())
     {
-        result = ReadSceneDeferredImages(opened.package, limits, cancellation);
+        result = ReadSceneDeferredImages(opened.package, limits, cancellation, progress);
     }
     return result;
 }
@@ -490,7 +544,10 @@ SceneImageReadResult ReadSceneImage(const Package&         package,
     return result;
 }
 
-SceneReadResult ReadScene(const std::string& path, const SceneReadLimits& limits, const Cancellation* cancellation)
+SceneReadResult ReadScene(const std::string&     path,
+                          const SceneReadLimits& limits,
+                          const Cancellation*    cancellation,
+                          SceneReadProgress      progress)
 {
     ZENASSET_MEASURE_SCOPE(Read);
     SceneReadResult     result;
@@ -498,7 +555,7 @@ SceneReadResult ReadScene(const std::string& path, const SceneReadLimits& limits
     result.status               = package.status;
     if (result.status.Succeeded())
     {
-        result = ReadScene(*package.package, limits, cancellation);
+        result = ReadScene(*package.package, limits, cancellation, progress);
     }
     return result;
 }

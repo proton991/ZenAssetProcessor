@@ -83,9 +83,29 @@ struct Package::State
     FILE*                       file{nullptr};
     std::vector<ResourceRecord> resources;
     uint64_t                    maxCodecBytes{0};
+    uint64_t                    largestChunk{0};
+    uint64_t                    decodedBytes{0};
+    uint64_t                    nextOffset{UINT64_MAX};
     PackageIdentity             identity;
     mutable std::mutex          mutex;
 
+    // With the cursor lock held, consume alignment padding from stdio's read
+    // buffer. Seeking for every small adjacent record would discard read-ahead.
+    Status BeginRead(uint64_t offset, const Cancellation* cancellation)
+    {
+        Status  status;
+        uint8_t padding[15];
+        if (nextOffset <= offset && offset - nextOffset <= sizeof(padding))
+        {
+            status = detail::ReadFileBytes(file, padding, offset - nextOffset, cancellation);
+        }
+        else if (!detail::SeekFile(file, offset))
+        {
+            status = {StatusCode::IOError, "Could not seek to package resource"};
+        }
+        nextOffset = UINT64_MAX;
+        return status;
+    }
     ~State()
     {
         if (file != nullptr)
@@ -107,6 +127,13 @@ PackageIdentity Package::Identity() const
 std::span<const ResourceRecord> Package::Resources() const
 {
     return m_state->resources;
+}
+
+bool Package::FitsReadLimits(const ReadLimits& limits) const
+{
+    return m_state->identity.fileBytes <= limits.maxFileBytes && m_state->decodedBytes <= limits.maxDecodedBytes
+        && m_state->largestChunk <= limits.maxChunkBytes && m_state->resources.size() <= limits.maxResources
+        && m_state->resources.size() <= limits.maxDirectoryBytes / sizeof(ResourceRecord);
 }
 
 const ResourceRecord* Package::Find(uint64_t id) const
@@ -150,17 +177,18 @@ ResourceData Package::Read(uint64_t id, const Cancellation* cancellation, uint64
         {
             result.status = {StatusCode::Cancelled, "Package read cancelled"};
         }
-        else if (!detail::SeekFile(m_state->file, record->offset))
-        {
-            result.status = {StatusCode::IOError, "Could not seek to package resource"};
-        }
         else
+        {
+            result.status = m_state->BeginRead(record->offset, cancellation);
+        }
+        if (result.status.Succeeded())
         {
             result.bytes.resize(static_cast<size_t>(record->decodedBytes));
             if (record->codec == TransportCodec::Zstandard)
             {
                 result.status = detail::ReadZstandardResource(m_state->file, *record, result.bytes,
-                                                              std::min(maxScratchBytes, m_state->maxCodecBytes), cancellation);
+                                                              std::min(maxScratchBytes, m_state->maxCodecBytes),
+                                                              result.scratchBytes, cancellation);
             }
             else
             {
@@ -172,6 +200,10 @@ ResourceData Package::Read(uint64_t id, const Cancellation* cancellation, uint64
                     result.status = {StatusCode::InvalidData, "Package resource checksum does not match"};
                 }
                 ZENASSET_MEASURE_END(checksum);
+            }
+            if (result.status.Succeeded())
+            {
+                m_state->nextOffset = record->offset + record->storedBytes;
             }
         }
     }
@@ -196,9 +228,9 @@ Status Package::ValidatePayloads(const Cancellation* cancellation) const
         {
             status = {StatusCode::Cancelled, "Package validation cancelled"};
         }
-        else if (!detail::SeekFile(m_state->file, record.offset))
+        else
         {
-            status = {StatusCode::IOError, "Could not seek to package resource"};
+            status = m_state->BeginRead(record.offset, cancellation);
         }
         uint64_t remaining = record.storedBytes;
         while (status.Succeeded() && remaining > 0)
@@ -210,6 +242,10 @@ Status Package::ValidatePayloads(const Cancellation* cancellation) const
                 kernels::UpdateHash(hash, buffer.data(), count);
                 remaining -= count;
             }
+        }
+        if (status.Succeeded())
+        {
+            m_state->nextOffset = record.offset + record.storedBytes;
         }
         if (status.Succeeded() && kernels::FinishHash(hash) != record.checksum)
         {
@@ -308,12 +344,15 @@ PackageResult OpenPackage(const std::string& path, const ReadLimits& limits, con
                 if (result.status.Succeeded())
                 {
                     state->resources.push_back(record);
-                    previousId        = record.id;
-                    previousEnd       = record.offset + record.storedBytes;
-                    remainingDecoded -= record.decodedBytes;
+                    state->largestChunk  = std::max({state->largestChunk, record.storedBytes, record.decodedBytes});
+                    previousId           = record.id;
+                    previousEnd          = record.offset + record.storedBytes;
+                    remainingDecoded    -= record.decodedBytes;
                 }
             }
         }
+        state->decodedBytes = limits.maxDecodedBytes - remainingDecoded;
+        state->nextOffset   = detail::HeaderBytes + resourceCount * detail::DirectoryEntryBytes;
         if (result.status.Succeeded()
             && (kernels::FinishHash(directoryHash) != detail::Read64(header.data() + 48) || previousEnd != fileBytes))
         {

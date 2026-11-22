@@ -31,6 +31,10 @@ public:
         One(value);
         m_stringLimit = m_limits.maxStringBytes;
     }
+    void Coordinates(const Scene& scene)
+    {
+        Single(ResourceType::TextureCoordinates, scene.vertexTexCoords);
+    }
     void Metadata(const Scene& scene)
     {
         (*this)(scene.sourcePath, scene.dependencies);

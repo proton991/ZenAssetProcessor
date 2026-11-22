@@ -16,6 +16,11 @@
 #include "Format/MathOps.h"
 #include "Processor/WorkerPool.h"
 
+namespace simdjson::dom
+{
+class element;
+}
+
 namespace zenasset
 {
 // Per-import paths are frozen before texture workers start.
@@ -55,12 +60,12 @@ public:
 private:
     void ImportFile(const std::filesystem::path& filePath, bool binary, Scene* pScene);
 
-    void                               ImportAsset(Scene* pScene);
+    void                               ImportAsset(Scene* pScene, const simdjson::dom::element& document);
     void                               LoadGltfSamplers(Scene* pScene);
-    void                               LoadGltfTextures(Scene* pScene);
-    void                               LoadGltfMaterials(Scene* pScene);
+    void                               LoadGltfTextures(Scene* pScene, const simdjson::dom::element& document);
+    void                               LoadGltfMaterials(Scene* pScene, const simdjson::dom::element& document);
     void                               LoadGltfMeshes(Scene* pScene);
-    void                               LoadGltfAssetData(Scene* pScene);
+    void                               LoadGltfAssetData(Scene* pScene, const simdjson::dom::element& document);
     void                               LoadGltfRenderableNodes(Scene* pScene);
     void                               LoadGltfInstances(uint32_t nodeIndex, Scene& scene);
     std::shared_ptr<const ImagePixels> DecodeGltfImage(uint32_t imageIndex, std::counting_semaphore<>* decodeSlots);
@@ -82,8 +87,6 @@ private:
 
 
     std::string       m_name;
-    std::string       m_json;
-    std::string       m_sourceJson;
     fastgltf::Options m_loadOptions;
     fastgltf::Parser  m_gltfParser;
     fastgltf::Asset   m_gltfAsset;

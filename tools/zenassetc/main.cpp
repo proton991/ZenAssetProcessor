@@ -756,6 +756,10 @@ Status Cook(const Arguments& arguments)
     if (status.Succeeded())
     {
         SceneWriteOptions options;
+        if (arguments.context.workerCount != 0)
+        {
+            options.maxImageWorkers = arguments.context.workerCount;
+        }
         options.metadata.sourceFormat     = imported.format;
         options.metadata.importerVersion  = imported.importerVersion;
         options.metadata.buildFingerprint = LibraryBuildFingerprint();

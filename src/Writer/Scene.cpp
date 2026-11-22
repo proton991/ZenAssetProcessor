@@ -1,12 +1,13 @@
 #include "ZenAsset/Processor/Write.h"
 #include "Diagnostics/StageMeasurements.h"
-#include "ZenAsset/Format/Validation.h"
+#include "Format/SceneValidation.h"
 #include "Format/SceneArchive.h"
 #include "Format/SceneResources.h"
 #include "Format/PackageLayout.h"
 #include "Format/FileIO.h"
 #include "Writer/Compression.h"
 #include "Writer/PackageWriter.h"
+#include "Processor/WorkerPool.h"
 #include "Format/MeshEncoding.h"
 #include <atomic>
 #include <chrono>
@@ -55,6 +56,10 @@ public:
     {
         counts[static_cast<size_t>(type)] = 1;
     }
+    void Coordinates(const Scene& scene)
+    {
+        Single(ResourceType::TextureCoordinates, scene.vertexTexCoords);
+    }
     void Metadata(const Scene&)
     {
         counts[static_cast<size_t>(ResourceType::Metadata)] = 1;
@@ -65,17 +70,98 @@ class SceneEncoder : public detail::ResourceEncoder
 {
 public:
     using detail::ResourceEncoder::ResourceEncoder;
-    void Encode(ResourceType type, uint32_t index, const ImageAsset& value)
+    Payload SerializeImage(uint32_t index, const ImageAsset& value, uint64_t budget) const
     {
         ImageAsset resident;
         resident.name = value.name;
-        if (m_status.Succeeded())
+        Payload payload;
+        payload.status = ResolveImagePixels(value.pixels, resident.pixels, m_cancellation);
+        if (payload.status.Succeeded() && !ValidateImagePixels(resident.pixels))
         {
-            m_status = ResolveImagePixels(value.pixels, resident.pixels, m_cancellation);
+            payload.status = {StatusCode::InvalidData, "Cannot write invalid image payload"};
         }
-        if (m_status.Succeeded())
+        if (payload.status.Succeeded())
         {
-            detail::ResourceEncoder::Encode(type, index, resident, ResourceVersion(type, resident));
+            payload = Serialize(ResourceType::Image, index, resident, ResourceVersion(ResourceType::Image, resident), budget);
+        }
+        return payload;
+    }
+
+    void EncodeImage(uint32_t index, const ImageAsset& image)
+    {
+        Payload payload = SerializeImage(index, image, m_bufferBudget);
+        Compress(payload, m_bufferBudget, m_options.maxEncoderBytes);
+        Append(payload);
+    }
+
+    static constexpr uint32_t MaxImageJobs = 4;
+
+    bool EncodeImageBatch(WorkerPool& workers, std::span<const ImageAsset> images, uint32_t first)
+    {
+        // Resolve on the caller. Each worker owns its serialized bytes, and
+        // both allocation limits are shared across all outstanding images.
+        const uint64_t                                 budget        = m_bufferBudget / images.size();
+        const uint64_t                                 encoderBudget = m_options.maxEncoderBytes / images.size();
+        std::array<std::future<Payload>, MaxImageJobs> pending;
+        for (uint32_t job = 0; job < images.size(); ++job)
+        {
+            Payload payload = SerializeImage(first + job, images[job], budget);
+            pending[job]    = workers.Push([this, payload = std::move(payload), budget, encoderBudget]() mutable {
+                Compress(payload, budget, encoderBudget);
+                return std::move(payload);
+            });
+        }
+        bool                              retrySerial = false;
+        std::array<Payload, MaxImageJobs> payloads;
+        for (size_t job = 0; job < images.size(); ++job)
+        {
+            payloads[job]        = pending[job].get();
+            const Status& status = payloads[job].status;
+            if (status.code == StatusCode::ResourceLimit)
+            {
+                retrySerial = true;
+            }
+            else if (!status.Succeeded() && m_status.Succeeded())
+            {
+                m_status = status;
+            }
+        }
+        for (size_t job = 0; !retrySerial && m_status.Succeeded() && job < images.size(); ++job)
+        {
+            Append(payloads[job]);
+        }
+        return !retrySerial;
+    }
+
+    void Array(ResourceType, const std::vector<ImageAsset>& images)
+    {
+        const uint32_t slots = std::min({m_options.maxImageWorkers, MaxImageJobs, static_cast<uint32_t>(images.size()),
+                                         std::thread::hardware_concurrency()});
+        std::unique_ptr<WorkerPool> workers;
+        if (m_status.Succeeded() && slots > 1 && m_options.compression.transport == TransportCodec::Zstandard)
+        {
+            for (const ImageAsset& image : images)
+            {
+                if (uint64_t(image.pixels->width) * image.pixels->height >= 512u * 512u)
+                {
+                    workers = std::make_unique<WorkerPool>(slots);
+                    break;
+                }
+            }
+        }
+        for (uint32_t first = 0; m_status.Succeeded() && first < images.size();)
+        {
+            const uint32_t count = workers ? std::min(slots, static_cast<uint32_t>(images.size()) - first) : 1;
+            if (count == 1 || !EncodeImageBatch(*workers, std::span(images).subspan(first, count), first))
+            {
+                // An image that exceeds its share can still use the entire
+                // budget once the batch releases its unpublished buffers.
+                for (uint32_t job = 0; m_status.Succeeded() && job < count; ++job)
+                {
+                    EncodeImage(first + job, images[first + job]);
+                }
+            }
+            first += count;
         }
     }
     template <class T> void Encode(ResourceType type, uint32_t index, const T& value)
@@ -92,6 +178,17 @@ public:
     template <class T> void Single(ResourceType type, const T& value)
     {
         Encode(type, 0, value);
+    }
+    void Coordinates(const Scene& scene)
+    {
+        if (m_options.compression.meshoptimizer && detail::HasRedundantCoordinates(scene, m_cancellation))
+        {
+            detail::ResourceEncoder::Encode(ResourceType::TextureCoordinates, 0, uint64_t(scene.vertices.size()), 2);
+        }
+        else
+        {
+            Single(ResourceType::TextureCoordinates, scene.vertexTexCoords);
+        }
     }
     void Metadata(const Scene& scene)
     {
@@ -152,7 +249,7 @@ Status WriteScene(const std::string&       path,
     {
         status = {StatusCode::ResourceLimit, "Scene validation scratch exceeds the allocation budget"};
     }
-    if (status.Succeeded() && !ValidateSceneAsset(scene, options.limits.maxRuntimeGeometryBytes, &failure))
+    if (status.Succeeded() && !detail::ValidateSceneGraph(scene, options.limits.maxRuntimeGeometryBytes, &failure))
     {
         status = {StatusCode::InvalidData, "Cannot write invalid scene: " + failure};
     }

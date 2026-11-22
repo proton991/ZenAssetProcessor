@@ -1,4 +1,4 @@
-#include "ZenAsset/Format/Validation.h"
+#include "Format/SceneValidation.h"
 #include "ZenAsset/Format/Scene.h"
 #include "Format/AnimatedMaterial.h"
 #include "Format/AssetKernels.h"
@@ -214,10 +214,6 @@ bool ValidAtlasTexture(const Scene& scene, const TextureAsset& texture)
 bool ValidImages(const Scene& asset)
 {
     bool valid = true;
-    for (const ImageAsset& image : asset.images)
-    {
-        valid &= ValidateImagePixels(image.pixels);
-    }
     for (const TextureAsset& texture : asset.textures)
     {
         valid &= ArePixelFormatsViewCompatible(asset.images[texture.image.value].pixels->format, texture.format);
@@ -810,7 +806,7 @@ bool ValidateAnimationAsset(const Scene& asset, const AnimationAsset& animation,
     return valid;
 }
 
-bool ValidateSceneAsset(const Scene& asset, uint64_t maxRuntimeGeometryBytes, std::string* failure)
+bool detail::ValidateSceneGraph(const Scene& asset, uint64_t maxRuntimeGeometryBytes, std::string* failure)
 {
     // Signed runtime indices reserve -1, and texture/material construction adds
     // default records. These checks precede every narrowing conversion.
@@ -864,6 +860,20 @@ bool ValidateSceneAsset(const Scene& asset, uint64_t maxRuntimeGeometryBytes, st
     if (failure != nullptr)
     {
         *failure = std::move(reason);
+    }
+    return valid;
+}
+
+bool ValidateSceneAsset(const Scene& asset, uint64_t maxRuntimeGeometryBytes, std::string* failure)
+{
+    bool valid = detail::ValidateSceneGraph(asset, maxRuntimeGeometryBytes, failure);
+    for (size_t index = 0; valid && index < asset.images.size(); ++index)
+    {
+        valid = ValidateImagePixels(asset.images[index].pixels);
+        if (!valid && failure != nullptr)
+        {
+            *failure = "invalid image payload";
+        }
     }
     return valid;
 }

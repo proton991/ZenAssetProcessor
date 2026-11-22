@@ -2,6 +2,7 @@
 #include "Diagnostics/StageMeasurements.h"
 #define ZSTD_STATIC_LINKING_ONLY
 #include <zstd.h>
+#include <memory>
 #include <algorithm>
 
 namespace zenasset::detail
@@ -109,7 +110,6 @@ CompressedResource CompressResource(std::span<const std::byte> input,
     }
     if (result.status.Succeeded() && settings.transport == TransportCodec::Zstandard && input.size() >= 64)
     {
-        ZENASSET_MEASURE_ADD(TransportEncodeAttempts, 1);
         ZSTD_compressionParameters parameters = ZSTD_getCParams(settings.zstandardLevel, input.size(), 0);
         parameters.windowLog                  = std::min(parameters.windowLog, 23u);
         const size_t estimate                 = ZSTD_estimateCStreamSize_usingCParams(parameters);
@@ -136,8 +136,8 @@ CompressedResource CompressResource(std::span<const std::byte> input,
         {
             // uint64_t provides the eight-byte alignment required by static
             // contexts. Static mode never allocates hidden codec heap storage.
-            std::vector<uint64_t> workspace(words);
-            ZSTD_CCtx*            encoder = ZSTD_initStaticCCtx(workspace.data(), workspace.size() * sizeof(uint64_t));
+            const std::unique_ptr<uint64_t[]> workspace = std::make_unique_for_overwrite<uint64_t[]>(words);
+            ZSTD_CCtx*                        encoder   = ZSTD_initStaticCCtx(workspace.get(), words * sizeof(uint64_t));
             if (encoder == nullptr)
             {
                 result.status = {StatusCode::ResourceLimit, "Cannot initialize bounded Zstandard encoder"};
@@ -155,7 +155,6 @@ CompressedResource CompressResource(std::span<const std::byte> input,
             }
         }
     }
-    ZENASSET_MEASURE_ADD(TransportEncodedResources, result.status.Succeeded() && result.codec != TransportCodec::None ? 1 : 0);
     return result;
 }
 } // namespace zenasset::detail

@@ -5,6 +5,7 @@
 #include <algorithm>
 #define ZSTD_STATIC_LINKING_ONLY
 #include <zstd.h>
+#include <memory>
 
 namespace zenasset::detail
 {
@@ -12,6 +13,7 @@ Status ReadZstandardResource(FILE*                 file,
                              const ResourceRecord& record,
                              std::span<std::byte>  output,
                              uint64_t              maxScratchBytes,
+                             uint64_t&             scratchBytes,
                              const Cancellation*   cancellation)
 {
     ZENASSET_MEASURE_SCOPE(TransportDecode);
@@ -62,12 +64,13 @@ Status ReadZstandardResource(FILE*                 file,
             }
         }
     }
-    std::vector<uint64_t> workspace;
-    ZSTD_DStream*         decoder = nullptr;
+    std::unique_ptr<uint64_t[]> workspace;
+    ZSTD_DStream*               decoder = nullptr;
     if (status.Succeeded())
     {
-        workspace.resize(workspaceBytes / sizeof(uint64_t));
-        decoder = ZSTD_initStaticDStream(workspace.data(), workspaceBytes);
+        scratchBytes = workspaceBytes + inputBytes;
+        workspace    = std::make_unique_for_overwrite<uint64_t[]>(workspaceBytes / sizeof(uint64_t));
+        decoder      = ZSTD_initStaticDStream(workspace.get(), workspaceBytes);
         if (decoder == nullptr)
         {
             status = {StatusCode::ResourceLimit, "Cannot initialize bounded Zstandard decoder"};

@@ -69,6 +69,8 @@ struct ResourceData
 {
     Status                 status;
     std::vector<std::byte> bytes;
+    // Peak codec scratch on a successful read, separate from the returned buffer.
+    uint64_t scratchBytes{0};
 };
 
 class Package;
@@ -89,7 +91,9 @@ public:
 
     std::span<const ResourceRecord> Resources() const;
     PackageIdentity                 Identity() const;
-    const ResourceRecord*           Find(uint64_t id) const;
+    // Compare directory and payload sizes. Codec scratch is bounded during Read.
+    bool                  FitsReadLimits(const ReadLimits& limits) const;
+    const ResourceRecord* Find(uint64_t id) const;
     ResourceData Read(uint64_t id, const Cancellation* cancellation = nullptr, uint64_t maxScratchBytes = UINT64_MAX) const;
     Status       ValidatePayloads(const Cancellation* cancellation = nullptr) const;
 

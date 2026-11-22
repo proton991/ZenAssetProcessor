@@ -16,6 +16,14 @@ struct SceneReadLimits
     uint64_t maxSourceDocumentBytes{1ull << 30};
     uint64_t maxRuntimeGeometryBytes{16ull << 30};
 };
+// Synchronous updates for required resources decoded during this scene read.
+// Deferred pixel leases never retain the callback or its user data.
+struct SceneReadProgress
+{
+    void* user{nullptr};
+    void  (*resourceDecoded)(void*, uint64_t completed, uint64_t total){nullptr};
+};
+
 struct SceneReadResult
 {
     Status                       status;
@@ -31,21 +39,25 @@ struct SceneMetadataResult
 };
 SceneReadResult ReadScene(const std::string&     path,
                           const SceneReadLimits& limits       = {},
-                          const Cancellation*    cancellation = nullptr);
+                          const Cancellation*    cancellation = nullptr,
+                          SceneReadProgress      progress     = {});
 SceneReadResult ReadScene(const Package&         package,
                           const SceneReadLimits& limits       = {},
-                          const Cancellation*    cancellation = nullptr);
+                          const Cancellation*    cancellation = nullptr,
+                          SceneReadProgress      progress     = {});
 // Validates the same graph and image payloads as ReadScene, but retains image
 // descriptors and open package handles. Pixel consumers must ResolveImagePixels.
-// Geometry stays resident. No schema change or original source files are required.
+// Geometry stays resident. Packages with explicit or implicit UV rows are supported.
 // Static two-set UV arrays are omitted only when bit-identical to uv0/uv1 in
 // the vertices. Ordinary ReadScene preserves the original canonical array shape.
 SceneReadResult ReadSceneDeferredImages(const std::string&     path,
                                         const SceneReadLimits& limits       = {},
-                                        const Cancellation*    cancellation = nullptr);
+                                        const Cancellation*    cancellation = nullptr,
+                                        SceneReadProgress      progress     = {});
 SceneReadResult ReadSceneDeferredImages(std::shared_ptr<const Package> package,
                                         const SceneReadLimits&         limits       = {},
-                                        const Cancellation*            cancellation = nullptr);
+                                        const Cancellation*            cancellation = nullptr,
+                                        SceneReadProgress              progress     = {});
 
 struct SceneImageReadResult
 {

@@ -25,6 +25,9 @@ struct SceneWriteOptions
     // not imply atomic publication has completed. The callback may cancel.
     void* progressUser{nullptr};
     void  (*resourceProgress)(void*, uint64_t completed, uint64_t total){nullptr};
+    // Independent image compression jobs share the byte and encoder budgets.
+    // One keeps the writer serial. Output ordering and bytes are identical.
+    uint32_t maxImageWorkers{4};
 };
 // Writes an exclusive temporary sibling and replaces the destination only after
 // complete serialization and flush. Prepublication failure/cancellation preserves

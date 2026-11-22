@@ -1,6 +1,6 @@
 #include "Processor/CookInternal.h"
 #include "Diagnostics/StageMeasurements.h"
-#include "ZenAsset/Format/Validation.h"
+#include "Format/SceneValidation.h"
 #include "Processing/GeometryProcessing.h"
 #include "Processing/EnvironmentProcessing.h"
 #include "Processing/SceneStorage.h"

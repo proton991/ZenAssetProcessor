@@ -22,11 +22,7 @@ AssemblyReadResult ReadAssembly(const Package& package, const SceneReadLimits& l
     {
         result.status = {StatusCode::InvalidData, "Expected one required native assembly resource"};
     }
-    else if (package.Identity().fileBytes > limits.package.maxFileBytes || limits.package.maxResources < 1
-             || limits.package.maxDirectoryBytes < sizeof(ResourceRecord)
-             || record->decodedBytes > limits.package.maxDecodedBytes || record->decodedBytes > limits.package.maxChunkBytes
-             || record->storedBytes > limits.package.maxChunkBytes || overhead > remaining
-             || record->decodedBytes > remaining - overhead)
+    else if (!package.FitsReadLimits(limits.package) || overhead > remaining || record->decodedBytes > remaining - overhead)
     {
         result.status = {StatusCode::ResourceLimit, "Assembly resource exceeds configured limits"};
     }

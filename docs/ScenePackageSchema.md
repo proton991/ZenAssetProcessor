@@ -7,9 +7,8 @@ the division into resources and their deterministic ordering. These are the
 authoritative schema definitions; changing an existing field order or meaning
 requires a resource schema version change.
 
-Resources use schema version 1 except Metadata (version 7 or 8, accepting 1–8),
-Texture (version 2, 3 or 4, accepting 1–4), Image (version 1 or 2, accepting 1–2),
-and Environment (version 2, accepting 1–2). The writer retains Image v1 for
+Resources use schema version 1 except Metadata (versions 1–9), Texture (versions 1–5),
+Image (versions 1–3), Environment and TextureCoordinates (versions 1–2). The writer retains Image v1 for
 unmipped single-layer images and uses Image v3 for explicit mip chains, storing
 each mip once. Texture v2 remains for layer-zero views; nonzero layer views use
 their newer schema. A spatial region requires
@@ -46,7 +45,7 @@ indices in the corresponding canonical array. Singleton ordinals are zero.
 | 17 | Light | One punctual light |
 | 18 | MaterialVariants | One array of variant names |
 | 19 | MaterialVariant | One primitive's variant bindings |
-| 20 | TextureCoordinates | One array of per-vertex UV arrays |
+| 20 | TextureCoordinates | One array of per-vertex UV arrays (v1), or a u64 row count (v2) |
 | 21 | SourceDocument | One optional-source-information UTF-8 string, possibly empty |
 
 Scene, Metadata, VertexStream, IndexStream, MaterialVariants,
@@ -55,6 +54,12 @@ The manifest counts only required resources, and every required typed ordinal
 must be contiguous and agree with those counts. Unreferenced optional directory
 entries may carry unknown versions or encodings and are skipped. A required
 reference cannot be satisfied by an optional entry.
+
+With lossless mesh compression enabled, the writer uses TextureCoordinates v2
+when a scene has two UV sets, no skins or morph primitives, and every row
+matches the corresponding vertex's `uv0` and `uv1` bit for bit. The count must
+match the nonempty vertex stream. Canonical reads reconstruct both UVs per row.
+Runtime reads use the vertex fields directly.
 
 Scalars use explicit little-endian bytes, including IEEE-754 float bit patterns.
 Enums and asset IDs use u32; absent IDs retain `UINT32_MAX`. Booleans use one byte

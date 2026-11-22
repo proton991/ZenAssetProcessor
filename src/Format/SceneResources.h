@@ -1,6 +1,7 @@
 #pragma once
 #include "ZenAsset/Reader/Scene.h"
 #include <array>
+#include <bit>
 
 namespace zenasset::detail
 {
@@ -39,13 +40,6 @@ inline uint64_t ResourceId(ResourceType type, uint32_t index = 0)
 {
     return (uint64_t(type) << 32) | (uint64_t(index) + 1);
 }
-inline bool FitsValidationBudget(const Scene& scene, uint64_t budget)
-{
-    // Reference validation holds parent/visited/root marks simultaneously;
-    // geometry validation separately sorts a copy of the coordinate-set list.
-    return scene.nodes.size() <= budget / (sizeof(uint32_t) + 2 * sizeof(uint8_t))
-        && scene.vertexTexCoordSets.size() <= budget / sizeof(uint64_t);
-}
 inline SceneReadLimits ResourceLimits(ResourceType type, const SceneReadLimits& limits)
 {
     SceneReadLimits result = limits;
@@ -54,6 +48,30 @@ inline SceneReadLimits ResourceLimits(ResourceType type, const SceneReadLimits& 
         result.maxStringBytes = limits.maxSourceDocumentBytes;
     }
     return result;
+}
+
+inline bool HasRedundantCoordinates(const Scene& scene, const Cancellation* cancellation)
+{
+    bool redundant = !scene.vertexTexCoords.empty() && scene.vertexTexCoords.size() == scene.vertices.size()
+                  && scene.vertexTexCoordSets.size() == 2 && scene.morphPrimitives.empty() && scene.skins.empty();
+    for (size_t index = 0; redundant && index < scene.vertices.size(); ++index)
+    {
+        if ((index & 4095u) == 0 && cancellation != nullptr && cancellation->IsCancelled())
+        {
+            redundant = false;
+            break;
+        }
+        const VertexTextureCoordinates& coordinates = scene.vertexTexCoords[index];
+        const Vertex&                   vertex      = scene.vertices[index];
+        redundant                                   = coordinates.size() == 2;
+        for (size_t slot = 0; redundant && slot < 2; ++slot)
+        {
+            const Vec2& uv = slot == 0 ? vertex.uv0 : vertex.uv1;
+            redundant      = std::bit_cast<uint32_t>(coordinates[slot].x) == std::bit_cast<uint32_t>(uv.x)
+                          && std::bit_cast<uint32_t>(coordinates[slot].y) == std::bit_cast<uint32_t>(uv.y);
+        }
+    }
+    return redundant;
 }
 
 // Resource ordering and the division between resources are shared by the
@@ -78,7 +96,7 @@ template <class Visitor, class SceneType> void VisitSceneResources(Visitor& visi
     visitor.Array(ResourceType::Light, scene.lights);
     visitor.Single(ResourceType::MaterialVariants, scene.materialVariants);
     visitor.Array(ResourceType::MaterialVariant, scene.variantPrimitives);
-    visitor.Single(ResourceType::TextureCoordinates, scene.vertexTexCoords);
+    visitor.Coordinates(scene);
     visitor.Single(ResourceType::SourceDocument, scene.sourceDocument);
 }
 

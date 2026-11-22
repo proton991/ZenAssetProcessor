@@ -590,6 +590,7 @@ private:
             if (result.status.Succeeded())
             {
                 SceneWriteOptions write;
+                write.maxImageWorkers           = ImportContext().workerCount;
                 write.limits                    = m_options.limits;
                 write.compression               = plan.job.compression;
                 write.maxEncoderBytes           = m_options.maxEncoderBytes;

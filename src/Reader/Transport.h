@@ -9,5 +9,6 @@ Status ReadZstandardResource(FILE*                 file,
                              const ResourceRecord& record,
                              std::span<std::byte>  output,
                              uint64_t              maxScratchBytes,
+                             uint64_t&             scratchBytes,
                              const Cancellation*   cancellation);
 } // namespace zenasset::detail

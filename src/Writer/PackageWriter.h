@@ -26,84 +26,60 @@ public:
             m_options.resourceProgress(m_options.progressUser, 0, m_resourceCount);
         }
     }
+    struct Payload
+    {
+        ResourceRecord         record;
+        std::vector<std::byte> bytes;
+        Status                 status;
+    };
+
+    template <class T>
+    Payload Serialize(ResourceType type, uint32_t index, const T& value, uint32_t version, uint64_t budget) const
+    {
+        ZENASSET_MEASURE_SCOPE(Serialize);
+        Payload payload;
+        payload.record.type          = type;
+        payload.record.id            = detail::ResourceId(type, index);
+        payload.record.version       = version;
+        const SceneReadLimits limits = detail::ResourceLimits(type, m_options.limits);
+        SceneArchive<false>   sizing({}, nullptr, limits, budget, m_cancellation, version);
+        sizing(value);
+        payload.status = sizing.Finish();
+        if (payload.status.Succeeded())
+        {
+            payload.bytes.resize(sizing.ByteSize());
+            SceneArchive<false> archive({}, &payload.bytes, limits, budget, m_cancellation, version);
+            archive(value);
+            payload.status = archive.Finish();
+        }
+        return payload;
+    }
+
     template <class T> void Encode(ResourceType type, uint32_t index, const T& value, uint32_t version = 1)
     {
         if (m_status.Succeeded())
         {
-            ZENASSET_MEASURE_BEGIN(serialization, Serialize);
-            const SceneReadLimits       limits = detail::ResourceLimits(type, m_options.limits);
-            detail::SceneArchive<false> sizing({}, nullptr, limits, m_bufferBudget, m_cancellation, version);
-            sizing(value);
-            m_status = sizing.Finish();
-            std::vector<std::byte> bytes;
-            if (m_status.Succeeded())
+            Payload payload = Serialize(type, index, value, version, m_bufferBudget);
+            if (payload.status.Succeeded())
             {
-                bytes.resize(sizing.ByteSize());
-                detail::SceneArchive<false> archive({}, &bytes, limits, m_bufferBudget, m_cancellation, version);
-                archive(value);
-                m_status = archive.Finish();
-            }
-            ZENASSET_MEASURE_END(serialization);
-            if (m_status.Succeeded())
-            {
-                detail::EncodedMeshResource encoded =
-                    detail::EncodeMeshResource(type, bytes, m_options.compression.meshoptimizer,
-                                               m_bufferBudget - bytes.capacity(), m_options.maxEncoderBytes, m_cancellation);
-                m_status = encoded.status;
-                if (m_status.Succeeded() && encoded.encoding != 0)
+                EncodedMeshResource encoded =
+                    EncodeMeshResource(type, payload.bytes, m_options.compression.meshoptimizer,
+                                       m_bufferBudget - payload.bytes.capacity(), m_options.maxEncoderBytes, m_cancellation);
+                payload.status = encoded.status;
+                if (encoded.encoding != 0)
                 {
-                    bytes = std::move(encoded.bytes);
-                }
-                if (m_status.Succeeded())
-                {
-                    detail::CompressedResource compressed =
-                        detail::CompressResource(bytes, m_options.compression, m_bufferBudget - bytes.capacity(),
-                                                 m_options.maxEncoderBytes, m_cancellation);
-                    m_status                                 = compressed.status;
-                    const std::span<const std::byte> stored  = compressed.codec == TransportCodec::None
-                                                                 ? std::span<const std::byte>(bytes)
-                                                                 : std::span<const std::byte>(compressed.bytes);
-                    const uint64_t                   padding = (16 - m_position % 16) % 16;
-                    if (m_status.Succeeded()
-                        && (padding > m_options.limits.package.maxFileBytes - m_position
-                            || stored.size() > m_options.limits.package.maxFileBytes - m_position - padding
-                            || bytes.size() > m_options.limits.package.maxDecodedBytes - m_decodedBytes))
-                    {
-                        m_status = {StatusCode::ResourceLimit, "Scene package exceeds its configured byte limits"};
-                    }
-                    else if (m_status.Succeeded())
-                    {
-                        const uint8_t zeros[16]{};
-                        m_status    = detail::WriteFileBytes(m_file, zeros, padding, m_cancellation);
-                        m_position += padding;
-                        if (m_status.Succeeded())
-                        {
-                            ResourceRecord record;
-                            record.id           = detail::ResourceId(type, index);
-                            record.type         = type;
-                            record.version      = version;
-                            record.codec        = compressed.codec;
-                            record.encoding     = encoded.encoding;
-                            record.offset       = m_position;
-                            record.storedBytes  = stored.size();
-                            record.decodedBytes = bytes.size();
-                            ZENASSET_MEASURE_BEGIN(checksum, Checksum);
-                            record.checksum = detail::HashBytes(stored.data(), stored.size());
-                            ZENASSET_MEASURE_END(checksum);
-                            m_status = detail::WriteFileBytes(m_file, stored.data(), stored.size(), m_cancellation);
-                            m_records.push_back(record);
-                            m_position     += stored.size();
-                            m_decodedBytes += bytes.size();
-                            if (m_status.Succeeded() && m_options.resourceProgress != nullptr)
-                            {
-                                m_options.resourceProgress(m_options.progressUser, m_records.size(), m_resourceCount);
-                            }
-                        }
-                    }
+                    payload.record.encoding = encoded.encoding;
+                    payload.bytes           = std::move(encoded.bytes);
                 }
             }
+            Compress(payload, m_bufferBudget, m_options.maxEncoderBytes);
+            Append(payload);
         }
     }
+
+    void Compress(Payload& payload, uint64_t budget, uint64_t encoderBudget) const;
+    void Append(Payload& payload);
+
     Status Finish()
     {
         ZENASSET_MEASURE_SCOPE(Serialize);

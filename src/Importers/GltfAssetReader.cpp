@@ -835,15 +835,16 @@ static std::string NormalizeIntegralJsonNumber(std::string_view number)
     return result;
 }
 
+// An empty result lets the parser use the original source directly.
 static std::string NormalizeIntegralJsonNumbers(const std::string& json)
 {
     std::string result;
 
-    result.reserve(json.size());
+    size_t copied = 0;
 
-    bool quoted  = false;
+    bool quoted   = false;
 
-    bool escaped = false;
+    bool escaped  = false;
 
     for (size_t index = 0; index < json.size(); ++index)
     {
@@ -859,12 +860,24 @@ static std::string NormalizeIntegralJsonNumbers(const std::string& json)
                 ++index;
             }
 
-            result += NormalizeIntegralJsonNumber(std::string_view(json).substr(first, index - first + 1));
+            const std::string_view token = std::string_view(json).substr(first, index - first + 1);
+            if (token.find_first_of(".eE") != std::string_view::npos)
+            {
+                const std::string normalized = NormalizeIntegralJsonNumber(token);
+                if (normalized != token)
+                {
+                    if (result.empty())
+                    {
+                        result.reserve(json.size());
+                    }
+                    result.append(json, copied, first - copied);
+                    result += normalized;
+                    copied  = index + 1;
+                }
+            }
         }
         else
         {
-            result += character;
-
             if (quoted && escaped)
             {
                 escaped = false;
@@ -880,27 +893,29 @@ static std::string NormalizeIntegralJsonNumbers(const std::string& json)
         }
     }
 
+    if (copied != 0)
+    {
+        result.append(json, copied);
+    }
     return result;
 }
 
 // Unsupported required extensions or a bad binary layout record an error and return no input.
-static std::vector<std::byte> PrepareExtensionParserInput(const std::string&        json,
-                                                          const std::string&        sourceJson,
+static std::vector<std::byte> PrepareExtensionParserInput(const std::string&        sourceJson,
                                                           fastgltf::span<std::byte> fileBytes,
                                                           bool                      binary,
+                                                          simdjson::dom::parser&    parser,
+                                                          simdjson::dom::element&   document,
                                                           ImportErrors&             errors)
 {
     std::vector<std::byte> result;
-
-    simdjson::dom::parser parser;
-
-    simdjson::dom::element document;
-
-    simdjson::dom::array required;
-
-    std::string normalized = json != sourceJson ? json : std::string{};
-
-    if (parser.parse(json).get(document) == simdjson::SUCCESS)
+    simdjson::dom::array   required;
+    std::string            normalized = NormalizeIntegralJsonNumbers(sourceJson);
+    if (parser.parse(normalized.empty() ? sourceJson : normalized).get(document) != simdjson::SUCCESS)
+    {
+        errors.Fail("Failed to parse glTF JSON");
+    }
+    else
     {
         if (document["extensionsRequired"].get_array().get(required) == simdjson::SUCCESS)
         {
@@ -1049,15 +1064,11 @@ static std::vector<std::byte> PrepareExtensionParserInput(const std::string&    
     return result;
 }
 
-static void LoadNodeProperties(const std::string& json, fastgltf::Asset& asset, ImportErrors& errors)
+static void LoadNodeProperties(const simdjson::dom::element& document, fastgltf::Asset& asset, ImportErrors& errors)
 {
-    simdjson::dom::parser parser;
-
-    simdjson::dom::element document;
-
     simdjson::dom::array nodes;
 
-    if (parser.parse(json).get(document) == simdjson::SUCCESS && document["nodes"].get_array().get(nodes) == simdjson::SUCCESS)
+    if (document["nodes"].get_array().get(nodes) == simdjson::SUCCESS)
     {
         size_t nodeIndex = 0;
 
@@ -1147,25 +1158,17 @@ std::unique_ptr<Scene> GltfAssetReader::LoadAsset(const std::string&         pat
 // Called before fastgltf reads external files (source == nullptr) to stamp them,
 // then after the read to check that each file fastgltf consumed is the stamped
 // revision. Stamping first lets cache publication reject edits made after it.
-static void RecordGltfDependencies(const std::string&           json,
-                                   const fastgltf::Asset*       source,
-                                   const std::filesystem::path& filePath,
-                                   Scene&                       asset,
-                                   ImportErrors&                errors,
-                                   GltfFileProgress&            progress)
+static void RecordGltfDependencies(const simdjson::dom::element& document,
+                                   const fastgltf::Asset*        source,
+                                   const std::filesystem::path&  filePath,
+                                   Scene&                        asset,
+                                   ImportErrors&                 errors,
+                                   GltfFileProgress&             progress)
 {
-    simdjson::dom::parser  parser;
-    simdjson::dom::element document;
-    const bool             parsed = parser.parse(json).get(document) == simdjson::SUCCESS;
-    // Malformed JSON is left to fastgltf's error before the read.
-    if (!parsed && source != nullptr)
-    {
-        errors.Fail("Could not inspect glTF dependencies");
-    }
     for (const char* collection : {"buffers", "images"})
     {
         simdjson::dom::array entries;
-        if (parsed && !errors.Failed() && document[collection].get_array().get(entries) == simdjson::SUCCESS)
+        if (!errors.Failed() && document[collection].get_array().get(entries) == simdjson::SUCCESS)
         {
             size_t index = 0;
             for (simdjson::dom::element entry : entries)
@@ -1283,14 +1286,16 @@ void GltfAssetReader::ImportFile(const std::filesystem::path& filePath, bool bin
         }
         else
         {
-            m_sourceJson.assign(reinterpret_cast<const char*>(fileBytes.data() + jsonOffset), jsonLength);
+            pScene->sourceDocument.assign(reinterpret_cast<const char*>(fileBytes.data() + jsonOffset), jsonLength);
 
             // glTF integer properties may use decimal or exponent notation. fastgltf's
             // uint64 reader requires integer tokens, so normalize exact integral values
             // lexically without rounding fractional values or changing quoted strings.
-            m_json                             = NormalizeIntegralJsonNumbers(m_sourceJson);
+            simdjson::dom::parser  parser;
+            simdjson::dom::element document;
 
-            std::vector<std::byte> parserBytes = PrepareExtensionParserInput(m_json, m_sourceJson, fileBytes, binary, m_errors);
+            std::vector<std::byte> parserBytes =
+                PrepareExtensionParserInput(pScene->sourceDocument, fileBytes, binary, parser, document, m_errors);
 
             if (!m_errors.Failed())
             {
@@ -1308,7 +1313,7 @@ void GltfAssetReader::ImportFile(const std::filesystem::path& filePath, bool bin
                 {
                     fastgltf::GltfDataBuffer parserData = std::move(input.get());
 
-                    RecordGltfDependencies(m_sourceJson, nullptr, filePath, *pScene, m_errors, m_fileProgress);
+                    RecordGltfDependencies(document, nullptr, filePath, *pScene, m_errors, m_fileProgress);
                     if (!m_errors.Failed() && m_fileProgress.control != nullptr)
                     {
                         m_fileProgress.control->FinishFileDiscovery();
@@ -1326,11 +1331,11 @@ void GltfAssetReader::ImportFile(const std::filesystem::path& filePath, bool bin
                     {
                         m_gltfAsset = std::move(loadedAsset.get());
 
-                        RecordGltfDependencies(m_sourceJson, &m_gltfAsset, filePath, *pScene, m_errors, m_fileProgress);
+                        RecordGltfDependencies(document, &m_gltfAsset, filePath, *pScene, m_errors, m_fileProgress);
 
                         // The asset may view parserData, so the import finishes in this scope.
                         ZENASSET_MEASURE_END(sourceParsing);
-                        ImportAsset(pScene);
+                        ImportAsset(pScene, document);
                         if (!m_errors.Failed())
                         {
                             // Dependencies loaded by fastgltf but unused by the selected scene still count once.
@@ -1346,7 +1351,7 @@ void GltfAssetReader::ImportFile(const std::filesystem::path& filePath, bool bin
     }
 }
 
-void GltfAssetReader::ImportAsset(Scene* pScene)
+void GltfAssetReader::ImportAsset(Scene* pScene, const simdjson::dom::element& document)
 {
     ZENASSET_MEASURE_SCOPE(SourceConvert);
     if (m_settings.sceneIndex != UINT32_MAX)
@@ -1361,7 +1366,7 @@ void GltfAssetReader::ImportAsset(Scene* pScene)
         }
     }
 
-    LoadNodeProperties(m_json, m_gltfAsset, m_errors);
+    LoadNodeProperties(document, m_gltfAsset, m_errors);
 
     if (!m_errors.Failed())
     {
@@ -1392,12 +1397,12 @@ void GltfAssetReader::ImportAsset(Scene* pScene)
         if (!m_errors.Failed())
         {
             m_errors.SetStage(SceneImportStage::DecodingTextures);
-            LoadGltfTextures(pScene);
+            LoadGltfTextures(pScene, document);
         }
 
         if (!m_errors.Failed())
         {
-            LoadGltfMaterials(pScene);
+            LoadGltfMaterials(pScene, document);
         }
 
         if (!m_errors.Failed())
@@ -1409,7 +1414,7 @@ void GltfAssetReader::ImportAsset(Scene* pScene)
         if (!m_errors.Failed())
         {
             m_errors.SetStage(SceneImportStage::BuildingScene);
-            LoadGltfAssetData(pScene);
+            LoadGltfAssetData(pScene, document);
         }
 
         if (!m_errors.Failed())
@@ -1906,18 +1911,12 @@ std::shared_ptr<const ImagePixels> GltfAssetReader::DecodeGltfImage(uint32_t ima
     return result;
 }
 
-static zen::HeapVector<uint32_t> GetAdditionalLinearTextures(const std::string& json)
+static zen::HeapVector<uint32_t> GetAdditionalLinearTextures(const simdjson::dom::element& document)
 {
     zen::HeapVector<uint32_t> textures;
+    simdjson::dom::array      materials;
 
-    simdjson::dom::parser parser;
-
-    simdjson::dom::element document;
-
-    simdjson::dom::array materials;
-
-    if (parser.parse(json).get(document) == simdjson::SUCCESS
-        && document["materials"].get_array().get(materials) == simdjson::SUCCESS)
+    if (document["materials"].get_array().get(materials) == simdjson::SUCCESS)
     {
         for (simdjson::dom::element material : materials)
         {
@@ -1936,7 +1935,7 @@ static zen::HeapVector<uint32_t> GetAdditionalLinearTextures(const std::string& 
     return textures;
 }
 
-void GltfAssetReader::LoadGltfTextures(Scene* pScene)
+void GltfAssetReader::LoadGltfTextures(Scene* pScene, const simdjson::dom::element& document)
 {
     ZENASSET_MEASURE_SCOPE(SourceImages);
     const size_t numSourceTextures = m_gltfAsset.textures.size();
@@ -1962,7 +1961,7 @@ void GltfAssetReader::LoadGltfTextures(Scene* pScene)
         }
     }
 
-    for (uint32_t texture : GetAdditionalLinearTextures(m_json))
+    for (uint32_t texture : GetAdditionalLinearTextures(document))
     {
         if (texture >= numSourceTextures)
         {
@@ -2237,7 +2236,7 @@ static void LoadAdditionalMaterialFeatures(const simdjson::dom::element&     doc
     }
 }
 
-void GltfAssetReader::LoadGltfMaterials(Scene* pScene)
+void GltfAssetReader::LoadGltfMaterials(Scene* pScene, const simdjson::dom::element& document)
 {
     m_texCoordIndices.clear();
 
@@ -2313,15 +2312,6 @@ void GltfAssetReader::LoadGltfMaterials(Scene* pScene)
         {
             texCoordSets.push_back(static_cast<uint64_t>(coordinate.first));
         }
-    }
-
-    simdjson::dom::parser jsonParser;
-
-    simdjson::dom::element document;
-
-    if (jsonParser.parse(m_json).get(document) != simdjson::SUCCESS)
-    {
-        m_errors.Fail("Failed to parse glTF material extension metadata");
     }
 
     zen::HeapVector<simdjson::dom::element> sourceMaterials;
@@ -2734,7 +2724,7 @@ GltfAssetReader::PrimitiveData GltfAssetReader::ProcessPrimitive(const fastgltf:
                     m_errors.Fail("glTF primitive has an invalid texture coordinate set");
                     result.valid = false;
                 }
-                else
+                else if (semantic != "TEXCOORD_0" && semantic != "TEXCOORD_1")
                 {
                     const fastgltf::Accessor* accessor =
                         GetVertexAccessor(primitive, attribute.name.c_str(), fastgltf::AccessorType::Vec2, 0);
@@ -2748,29 +2738,23 @@ GltfAssetReader::PrimitiveData GltfAssetReader::ProcessPrimitive(const fastgltf:
                 }
             }
         }
-        result.valid = result.valid && ReserveGeometryVector(result.texCoords, result.vertices.size(), m_errors);
-        for (size_t index = 0; index < result.vertices.size() && result.valid; ++index)
+        // UV0 and UV1 were decoded into the vertex before flat-normal expansion.
+        // Charge the fixed-width rows once before the workers allocate them.
+        result.valid = result.valid && ReserveGeometryVector(result.texCoords, result.vertices.size(), m_errors)
+                    && m_errors.ReserveGeometryBytes(result.vertices.size(), uint64_t(texCoordCount) * sizeof(Vec2));
+        for (size_t index = 0; index < result.vertices.size() && result.valid && !m_errors.Failed(); ++index)
         {
             result.bounds.SetMin(Vec3(result.vertices[index].pos));
             result.bounds.SetMax(Vec3(result.vertices[index].pos));
-            VertexTextureCoordinates coordinates;
-            result.valid = ResizeGeometryVector(coordinates, texCoordCount, m_errors);
-            for (Vec2& coordinate : coordinates)
-            {
-                coordinate = Vec2(0);
-            }
+            VertexTextureCoordinates coordinates(texCoordCount, Vec2(0));
+            coordinates[0] = result.vertices[index].uv0;
+            coordinates[1] = result.vertices[index].uv1;
             for (const std::pair<uint32_t, const fastgltf::Accessor*>& coordinate : texCoords)
             {
-                if (result.valid)
-                {
-                    coordinates[coordinate.first] =
-                        fastgltf::getAccessorElement<Vec2>(m_gltfAsset, *coordinate.second, result.sourceVertices[index]);
-                }
+                coordinates[coordinate.first] =
+                    fastgltf::getAccessorElement<Vec2>(m_gltfAsset, *coordinate.second, result.sourceVertices[index]);
             }
-            if (result.valid)
-            {
-                result.texCoords.push_back(std::move(coordinates));
-            }
+            result.texCoords.push_back(std::move(coordinates));
         }
     }
     if (result.valid)
@@ -3330,24 +3314,11 @@ static VertexAttributeAsset DecodeRetainedVertexAttribute(const fastgltf::Asset&
     return retained;
 }
 
-void GltfAssetReader::LoadGltfAssetData(Scene* pScene)
+void GltfAssetReader::LoadGltfAssetData(Scene* pScene, const simdjson::dom::element& document)
 {
-    Scene& data         = *pScene;
+    Scene& data = *pScene;
 
-    data.sourceDocument = m_sourceJson;
-
-    simdjson::dom::parser jsonParser;
-
-    simdjson::dom::element document;
-
-    if (jsonParser.parse(m_json).get(document) != simdjson::SUCCESS)
-    {
-        m_errors.Fail("Failed to parse glTF extension metadata");
-    }
-    else
-    {
-        LoadImageBasedLights(document, m_gltfAsset, data, m_errors, m_fileProgress);
-    }
+    LoadImageBasedLights(document, m_gltfAsset, data, m_errors, m_fileProgress);
 
     for (const std::string& name : m_gltfAsset.materialVariants)
     {

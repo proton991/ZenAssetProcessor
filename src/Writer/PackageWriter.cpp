@@ -18,6 +18,65 @@ detail::FileOpenResult OpenTemporary(const std::filesystem::path& destination, s
 }
 } // namespace
 
+void ResourceEncoder::Compress(Payload& payload, uint64_t budget, uint64_t encoderBudget) const
+{
+    if (payload.status.Succeeded())
+    {
+        payload.record.decodedBytes   = payload.bytes.size();
+        CompressedResource compressed = CompressResource(payload.bytes, m_options.compression,
+                                                         budget - payload.bytes.capacity(), encoderBudget, m_cancellation);
+        payload.status                = std::move(compressed.status);
+        if (compressed.codec != TransportCodec::None)
+        {
+            payload.record.codec = compressed.codec;
+            payload.bytes        = std::move(compressed.bytes);
+        }
+        if (payload.status.Succeeded())
+        {
+            ZENASSET_MEASURE_SCOPE(Checksum);
+            payload.record.storedBytes = payload.bytes.size();
+            payload.record.checksum    = HashBytes(payload.bytes.data(), payload.bytes.size());
+        }
+    }
+}
+
+void ResourceEncoder::Append(Payload& payload)
+{
+    m_status                = std::move(payload.status);
+    ResourceRecord& record  = payload.record;
+    const uint64_t  padding = (16 - m_position % 16) % 16;
+    if (m_status.Succeeded()
+        && (padding > m_options.limits.package.maxFileBytes - m_position
+            || record.storedBytes > m_options.limits.package.maxFileBytes - m_position - padding
+            || record.decodedBytes > m_options.limits.package.maxDecodedBytes - m_decodedBytes))
+    {
+        m_status = {StatusCode::ResourceLimit, "Scene package exceeds its configured byte limits"};
+    }
+    if (m_status.Succeeded())
+    {
+        const uint8_t zeros[16]{};
+        m_status = WriteFileBytes(m_file, zeros, padding, m_cancellation);
+    }
+    if (m_status.Succeeded())
+    {
+        record.offset = m_position + padding;
+        m_status      = WriteFileBytes(m_file, payload.bytes.data(), payload.bytes.size(), m_cancellation);
+    }
+    if (m_status.Succeeded())
+    {
+        m_position      = record.offset + record.storedBytes;
+        m_decodedBytes += record.decodedBytes;
+        m_records.push_back(record);
+        ZENASSET_MEASURE_ADD(TransportEncodedResources, record.codec != TransportCodec::None ? 1 : 0);
+        ZENASSET_MEASURE_ADD(TransportEncodeAttempts,
+                             m_options.compression.transport == TransportCodec::Zstandard && record.decodedBytes >= 64 ? 1 : 0);
+        if (m_options.resourceProgress != nullptr)
+        {
+            m_options.resourceProgress(m_options.progressUser, m_records.size(), m_resourceCount);
+        }
+    }
+}
+
 Status WritePackage(const std::string&       path,
                     uint64_t                 count,
                     const SceneWriteOptions& options,
