@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.23)
-project(ZenAssetProcessor VERSION 0.1.0 LANGUAGES C CXX)
+project(ZenAssetProcessor VERSION 0.2.0 LANGUAGES C CXX)
+# Zen components are released together: the processor requires the matching ZenFoundation major.minor.
+set(ZENASSET_FOUNDATION_ABI "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -22,6 +24,7 @@ add_library(ZenAssetFormat STATIC
 add_library(ZenAsset::Format ALIAS ZenAssetFormat)
 set_target_properties(ZenAssetFormat PROPERTIES EXPORT_NAME Format)
 target_compile_features(ZenAssetFormat PUBLIC cxx_std_20)
+target_compile_definitions(ZenAssetFormat PRIVATE ZENASSET_LIBRARY_VERSION="${PROJECT_VERSION}")
 target_include_directories(ZenAssetFormat PRIVATE src)
 file(GLOB_RECURSE ZENASSET_FINGERPRINT_INPUTS CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/*.h

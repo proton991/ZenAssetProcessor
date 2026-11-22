@@ -154,7 +154,7 @@ Both options default to off, and selecting desktop alone enables neither.
 See [texture cooking](docs/TextureProcessing.md) for settings, shared-image
 splitting, alpha handling, allocation limits, and the remaining format scope.
 
-Consumers use `find_package(ZenAsset 0.1 CONFIG REQUIRED COMPONENTS Reader)` or
+Consumers use `find_package(ZenAsset 0.2 CONFIG REQUIRED COMPONENTS Reader)` or
 request the `Processor` component for source import and writing. Link
 `ZenAsset::Reader` for `OpenPackage`, `ReadSceneMetadata`, and `ReadScene`, or
 `ZenAsset::Processor` for `ImportScene`, `CookScene`, and `WriteScene`. Import

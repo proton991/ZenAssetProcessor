@@ -10,7 +10,7 @@ An installed package with the CLI provides the `Compiler` component and the
 `ZenAsset::Compiler` executable target:
 
 ```cmake
-find_package(ZenAsset 0.1 CONFIG REQUIRED COMPONENTS Compiler)
+find_package(ZenAsset 0.2 CONFIG REQUIRED COMPONENTS Compiler)
 
 zenasset_add_manifest_build(
     TARGET cook_assets

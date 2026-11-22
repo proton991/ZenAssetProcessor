@@ -5,7 +5,7 @@ namespace zenasset
 {
 std::string_view LibraryVersion()
 {
-    return "0.1.0";
+    return ZENASSET_LIBRARY_VERSION;
 }
 std::string_view LibraryBuildFingerprint()
 {

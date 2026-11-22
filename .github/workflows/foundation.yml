@@ -7,7 +7,8 @@ jobs:
     runs-on: windows-2022
     strategy:
       matrix:
-        foundation: [main, v0.1.0]
+        # The second entry is the release tag shared by every Zen component of this version.
+        foundation: [main, v0.2.0]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4

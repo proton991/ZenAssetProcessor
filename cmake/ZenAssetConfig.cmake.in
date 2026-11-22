@@ -1,7 +1,7 @@
 @PACKAGE_INIT@
 if("@ZENASSET_BUILD_PROCESSOR@" AND "@ZENASSET_INSTALL_PROCESSOR@")
     include(CMakeFindDependencyMacro)
-    find_dependency(ZenFoundation 0.1 CONFIG)
+    find_dependency(ZenFoundation @ZENASSET_FOUNDATION_ABI@ CONFIG)
 endif()
 @ZENASSET_PROCESSOR_CONFIG_DEPENDENCIES@
 include("${CMAKE_CURRENT_LIST_DIR}/ZenAssetTargets.cmake")
