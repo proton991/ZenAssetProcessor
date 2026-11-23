@@ -7,6 +7,7 @@ namespace zenasset::detail
 std::timed_mutex& AssemblyBuildGate();
 Status            ValidateBuildJob(const SceneBuildJob& job);
 std::string       BuildSettingsKey(const SceneBuildJob& job, std::string_view format, uint32_t importerVersion);
+bool              SamePathText(const std::filesystem::path& a, const std::filesystem::path& b);
 bool              Cancelled(const Cancellation* cancellation);
 bool              PollImport(void* user);
 bool              Alias(const std::filesystem::path& a, const std::filesystem::path& b);

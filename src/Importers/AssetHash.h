@@ -35,6 +35,7 @@ private:
 
 // Sixteen lowercase hexadecimal digits.
 std::string DigestText(AssetDigest digest);
+bool        IsDigestText(const std::string& value);
 bool        HashAssetFile(const std::string& path, AssetDigest& digest, SceneImportControl* control = nullptr);
 
 // Size and last-write time identify a file revision without reading its bytes.

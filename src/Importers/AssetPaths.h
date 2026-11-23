@@ -11,6 +11,19 @@ inline std::string PathToUtf8(const std::filesystem::path& path)
     return std::string(reinterpret_cast<const char*>(text.data()), text.size());
 }
 
+inline bool HasPathExtension(const std::filesystem::path& path, const char* wanted)
+{
+    std::string extension = PathToUtf8(path.extension());
+    for (char& c : extension)
+    {
+        if (c >= 'A' && c <= 'Z')
+        {
+            c = static_cast<char>(c + ('a' - 'A'));
+        }
+    }
+    return extension == wanted;
+}
+
 // Absolute, lexically normalized UTF-8 path; empty when it cannot be resolved.
 inline std::string AbsoluteUtf8Path(const std::filesystem::path& path)
 {

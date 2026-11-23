@@ -177,38 +177,15 @@ Status Inventory(const std::filesystem::path&   root,
     return status;
 }
 
-bool Extension(const std::filesystem::path& path, const char* wanted)
-{
-    std::string extension = PathToUtf8(path.extension());
-    for (char& c : extension)
-    {
-        if (c >= 'A' && c <= 'Z')
-        {
-            c = static_cast<char>(c + ('a' - 'A'));
-        }
-    }
-    return extension == wanted;
-}
-
-bool Hex(const std::string& value)
-{
-    bool valid = value.size() == 16;
-    for (char c : value)
-    {
-        valid = valid && ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'));
-    }
-    return valid;
-}
-
 bool IdentityName(const std::filesystem::path& path, const PackageIdentity& identity, const BuildMetadata& metadata)
 {
     std::string       stem    = PathToUtf8(path.stem());
     const std::string suffix  = "-" + metadata.cacheKey + "-" + DigestText(identity.headerHash);
-    bool              matches = Hex(metadata.cacheKey) && stem.ends_with(suffix);
-    if (!matches && stem.size() > 17 && stem[stem.size() - 17] == '-' && Hex(stem.substr(stem.size() - 16)))
+    bool              matches = IsDigestText(metadata.cacheKey) && stem.ends_with(suffix);
+    if (!matches && stem.size() > 17 && stem[stem.size() - 17] == '-' && IsDigestText(stem.substr(stem.size() - 16)))
     {
         stem.resize(stem.size() - 17);
-        matches = Hex(metadata.cacheKey) && stem.ends_with(suffix);
+        matches = IsDigestText(metadata.cacheKey) && stem.ends_with(suffix);
     }
     const std::string key   = matches ? stem.substr(0, stem.size() - suffix.size()) : std::string();
     bool              valid = matches && !key.empty() && key.size() <= 128 && !metadata.buildFingerprint.empty();
@@ -281,7 +258,7 @@ Status Retained(const zen::HeapVector<CleanupEntry>& entries,
     limits.maxAllocationBytes = std::min(limits.maxAllocationBytes, options.maxPlanningBytes / 4);
     for (const CleanupEntry& entry : entries)
     {
-        if (status.Succeeded() && !entry.directory && Extension(entry.path, ".zenscene"))
+        if (status.Succeeded() && !entry.directory && HasPathExtension(entry.path, ".zenscene"))
         {
             const PackageResult package = OpenPackage(PathToUtf8(entry.path), limits.package, cancellation);
             status                      = package.status;
@@ -405,7 +382,7 @@ AssemblyCleanupResult Clean(const std::string& text, const AssemblyCleanupOption
     for (const CleanupEntry& entry : entries)
     {
         if (result.status.Succeeded() && !entry.directory && entry.path.parent_path() == root / "models"
-            && Extension(entry.path, ".zenasset") && !references.contains(entry.path))
+            && HasPathExtension(entry.path, ".zenasset") && !references.contains(entry.path))
         {
             const PackageResult package = OpenPackage(PathToUtf8(entry.path), limits.package, cancellation);
             if (package.status.Succeeded())

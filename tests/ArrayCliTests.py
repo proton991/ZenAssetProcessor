@@ -65,6 +65,26 @@ def directory_cache(executable, directory, scene_tests):
     def parts(manifest):
         return json.loads(invoke(executable, "inspect", manifest).stdout)["parts"]
 
+    exports = directory / "existing-exports"
+    original = exports / source.stem / "approved.zenasset"
+    original.parent.mkdir(parents=True)
+    invoke(executable, "cook", source, "--output", original)
+    claimed = cook(source, exports)
+    assert claimed.parent != original.parent and list(original.parent.iterdir()) == [original]
+    assert cook(source, exports) == claimed
+    invoke(executable, "validate", original)
+    original.parent.rename(exports / "archived")
+    assert cook(source, exports) == claimed and not original.parent.exists()
+
+    snapshot = claimed.with_name("approved.ZENASSET")
+    shutil.copyfile(claimed, snapshot)
+    edited = json.loads(source.read_text())
+    edited["images"][0]["name"] = "revised"
+    source.write_text(json.dumps(edited))
+    cook(source, exports)
+    invoke(executable, "validate", snapshot)
+    fixture(source)
+
     with ThreadPoolExecutor(max_workers=4) as pool:
         paths = list(pool.map(cook, [source, alternate, source, alternate]))
     assert paths[0] == paths[2] and paths[1] == paths[3] and paths[0].parent != paths[1].parent

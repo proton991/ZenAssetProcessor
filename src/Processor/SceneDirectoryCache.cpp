@@ -1,5 +1,6 @@
 #include "Processor/BuildInternal.h"
 #include "Importers/AssetHash.h"
+#include "Importers/AssetPaths.h"
 #include "Writer/DirectoryParts.h"
 #include "ZenFoundation/Templates/HeapVector.h"
 #include <algorithm>
@@ -8,19 +9,15 @@
 #include <iomanip>
 #include <set>
 #include <sstream>
+#include <simdjson.h>
 
 namespace zenasset
 {
 namespace
 {
-std::string Utf8Path(const std::filesystem::path& path)
-{
-    const std::u8string utf8 = path.generic_u8string();
-    return std::string(utf8.begin(), utf8.end());
-}
 std::string ModelStem(const std::filesystem::path& source)
 {
-    std::string stem = Utf8Path(source.stem());
+    std::string stem = PathToUtf8(source.stem());
     for (char& ch : stem)
     {
         if (static_cast<unsigned char>(ch) < 32 || std::string_view("<>:\"/\\|?*").find(ch) != std::string_view::npos)
@@ -43,7 +40,11 @@ std::string ModelStem(const std::filesystem::path& source)
     }
     return stem;
 }
-std::string OwnerJson(const std::string& identity)
+std::string CollisionStem(const std::string& stem, std::string_view identity)
+{
+    return stem + "-" + DigestText(detail::HashBytes(identity.data(), identity.size()));
+}
+std::string OwnerJson(std::string_view identity)
 {
     std::ostringstream text;
     text << "{\"source\":\"";
@@ -84,13 +85,13 @@ Status RecordDirectoryInputs(const Scene& scene, BuildMetadata& metadata)
     std::error_code             error;
     const std::filesystem::path source = std::filesystem::canonical(std::filesystem::u8path(scene.sourcePath), error);
     Status                      status;
-    if (error || !StampAssetFile(Utf8Path(source), stamp))
+    if (error || !StampAssetFile(PathToUtf8(source), stamp))
     {
         status = {StatusCode::SourceUnavailable, "Cannot identify imported source"};
     }
     else
     {
-        metadata.inputs = {{Utf8Path(source), true, stamp.size, stamp.modified, scene.sourceContentHash}};
+        metadata.inputs = {{PathToUtf8(source), true, stamp.size, stamp.modified, scene.sourceContentHash}};
         metadata.inputs.insert(metadata.inputs.end(), scene.dependencies.begin(), scene.dependencies.end());
     }
     return status;
@@ -133,10 +134,9 @@ Status SceneDirectoryManifest(const std::string&         cacheRoot,
     }
     if (status.Succeeded())
     {
-        const std::string identity = Utf8Path(input);
+        const std::string identity = PathToUtf8(input);
         const std::string owner    = OwnerJson(identity);
         const std::string stem     = ModelStem(input);
-        const std::string suffix   = "-" + DigestText(detail::HashBytes(identity.data(), identity.size()));
         SceneBuildJob     job;
         job.sourceSettings = metadata.settings;
         job.processing     = metadata.processing;
@@ -151,26 +151,27 @@ Status SceneDirectoryManifest(const std::string&         cacheRoot,
             status = {StatusCode::InvalidArgument, "Unknown scene directory profile"};
         }
         bool claimed = false;
-        for (unsigned index = 0; status.Succeeded() && !claimed && index < 2; ++index)
+        const std::filesystem::path alternate = root / std::filesystem::u8path(CollisionStem(stem, identity));
+        const unsigned              first     = MatchesOwner(alternate / "source.json", owner) ? 1 : 0;
+        for (unsigned index = first; status.Succeeded() && !claimed && index < 2; ++index)
         {
-            const std::filesystem::path folder  = root / std::filesystem::u8path(index == 0 ? stem : stem + suffix);
+            const std::filesystem::path folder  = index == 0 ? root / std::filesystem::u8path(stem) : alternate;
             const std::filesystem::path receipt = folder / "source.json";
+            if (std::filesystem::exists(folder, error) && !std::filesystem::is_directory(folder, error) && !error)
+            {
+                continue;
+            }
             std::filesystem::create_directories(folder, error);
             if (!error)
             {
                 const std::filesystem::path actual   = std::filesystem::canonical(folder, error);
                 const std::filesystem::path expected = std::filesystem::canonical(root, error) / folder.filename();
-#if defined(_WIN32)
-                const bool redirected = _wcsicmp(actual.c_str(), expected.c_str()) != 0;
-#else
-                const bool redirected = actual != expected;
-#endif
-                if (!error && redirected)
+                if (!error && !detail::SamePathText(actual, expected))
                 {
                     status = {StatusCode::InvalidData, "Redirected model directory"};
                 }
             }
-            if (status.Succeeded() && !error && !std::filesystem::exists(receipt, error))
+            if (status.Succeeded() && !error && std::filesystem::is_empty(folder, error))
             {
                 std::filesystem::path  temporary;
                 detail::FileOpenResult opened = detail::OpenTemporary(receipt, temporary);
@@ -197,18 +198,50 @@ Status SceneDirectoryManifest(const std::string&         cacheRoot,
             else if (status.Succeeded() && MatchesOwner(receipt, owner))
             {
                 claimed      = true;
-                manifestPath = Utf8Path(folder / filename);
+                manifestPath = PathToUtf8(folder / filename);
             }
         }
         if (status.Succeeded() && !claimed)
         {
-            status = {StatusCode::InvalidData, "Both model directory names are owned by other sources"};
+            status = {StatusCode::InvalidData, "Both model directory names are occupied"};
         }
     }
     return status;
 }
 namespace
 {
+bool IsCacheModel(const std::filesystem::path& model)
+{
+    const std::filesystem::path receipt = model / "source.json";
+    std::error_code             error;
+    bool                        managed = false;
+    if (std::filesystem::is_regular_file(model / ".zen-publish.lock", error)
+        && std::filesystem::is_regular_file(std::filesystem::symlink_status(receipt, error)))
+    {
+        // A single escaped absolute path fits well below this bound. A user's
+        // export can have both writer lock files and unrelated source metadata.
+        const uintmax_t bytes = std::filesystem::file_size(receipt, error);
+        if (!error && bytes > 0 && bytes <= (1u << 20))
+        {
+            std::string           text(static_cast<size_t>(bytes), '\0');
+            std::ifstream         input(receipt, std::ios::binary);
+            simdjson::dom::parser parser;
+            std::string_view      identity;
+            std::filesystem::path source;
+            if (input.read(text.data(), static_cast<std::streamsize>(text.size()))
+                && parser.parse(text)["source"].get_string().get(identity) == simdjson::SUCCESS
+                && detail::MakePath(identity, source).Succeeded() && source.is_absolute() && text == OwnerJson(identity))
+            {
+                const std::string           stem = ModelStem(source);
+                const std::filesystem::path name = model.filename();
+                managed                          = detail::SamePathText(name, std::filesystem::u8path(stem))
+                                                || detail::SamePathText(name, std::filesystem::u8path(CollisionStem(stem, identity)));
+            }
+        }
+    }
+    return managed;
+}
+
 struct CacheEntry
 {
     std::filesystem::path           path;
@@ -224,11 +257,11 @@ bool CollectModel(const std::filesystem::path& model, const CacheEntry& drop, ui
     zen::HeapVector<std::filesystem::path> stale;
     for (std::filesystem::directory_iterator it(model, error), end; safe && !error && it != end; it.increment(error))
     {
-        if (it->path().extension() == ".zenasset" && it->path() != drop.path)
+        if (HasPathExtension(it->path(), ".zenasset") && it->path() != drop.path)
         {
             // Read the direct index under the publisher lock. The reader gate is
             // acquired after collecting references, before any unlink.
-            const PackageResult manifest = OpenPackage(Utf8Path(it->path()));
+            const PackageResult manifest = OpenPackage(PathToUtf8(it->path()));
             safe                         = manifest.status.Succeeded();
             if (safe)
             {
@@ -238,7 +271,7 @@ bool CollectModel(const std::filesystem::path& model, const CacheEntry& drop, ui
                 }
             }
         }
-        else if (Utf8Path(it->path().filename()).find(".zenasset.tmp.") != std::string::npos)
+        else if (PathToUtf8(it->path().filename()).find(".zenasset.tmp.") != std::string::npos)
         {
             stale.push_back(it->path());
         }
@@ -250,7 +283,7 @@ bool CollectModel(const std::filesystem::path& model, const CacheEntry& drop, ui
         {
             for (std::filesystem::directory_iterator it(sub, error), end; !error && it != end; it.increment(error))
             {
-                const std::string name = Utf8Path(it->path().filename());
+                const std::string name = PathToUtf8(it->path().filename());
                 if ((name.starts_with("mesh-") || name.starts_with("image-") || name.starts_with("mesh.zenpart.tmp."))
                     && (it->path().extension() == ".zenpart" || name.find(".zenpart.tmp.") != std::string::npos)
                     && !live.contains(it->path()))
@@ -260,7 +293,9 @@ bool CollectModel(const std::filesystem::path& model, const CacheEntry& drop, ui
             }
         }
     }
-    safe = safe && readers.Acquire(model / ".zen-reader.lock", true, true, false, nullptr).Succeeded();
+    detail::CacheFileLock portableReaders;
+    safe = safe && readers.Acquire(model / ".zen-reader.lock", true, true, false, nullptr).Succeeded()
+        && portableReaders.TryAcquireDirectory(model, true);
     if (safe && !error && !drop.path.empty())
     {
         // A lookup or concurrent publication can refresh this variant after the LRU scan.
@@ -296,7 +331,7 @@ bool TryCollectUnusedSceneParts(const std::string& manifest)
     if (detail::MakePath(manifest, path).Succeeded())
     {
         const std::filesystem::path model = std::filesystem::canonical(path.parent_path(), error);
-        if (!error && std::filesystem::is_regular_file(model / "source.json", error))
+        if (!error && IsCacheModel(model))
         {
             uint64_t removed = 0;
             collected        = CollectModel(model, {}, removed);
@@ -318,8 +353,7 @@ Status TrimSceneDirectoryCache(const std::string& cacheRoot, uint64_t byteBudget
         const std::filesystem::path path = it->path();
         if (it->is_directory(error))
         {
-            if (std::filesystem::canonical(path, error) != path
-                || (it.depth() == 0 && !std::filesystem::exists(path / "source.json", error))
+            if (std::filesystem::canonical(path, error) != path || (it.depth() == 0 && !IsCacheModel(path))
                 || (it.depth() == 1 && path.filename() != "geometry" && path.filename() != "textures") || it.depth() > 1)
             {
                 it.disable_recursion_pending();
@@ -330,7 +364,8 @@ Status TrimSceneDirectoryCache(const std::string& cacheRoot, uint64_t byteBudget
                 CollectModel(path, {}, removed);
             }
         }
-        else if (!error && path.extension() == ".zenasset" && it.depth() <= 1)
+        else if (!error && it.depth() <= 1 && HasPathExtension(path, ".zenasset")
+                 && (it.depth() == 1 || IsDigestText(PathToUtf8(path.stem()))))
         {
             entries.push_back({path, it->last_write_time(error)});
             total += it->file_size(error);
@@ -341,7 +376,7 @@ Status TrimSceneDirectoryCache(const std::string& cacheRoot, uint64_t byteBudget
         }
         else if (!error && it.depth() == 0 && it->last_write_time(error) < stale)
         {
-            const std::string name = Utf8Path(path.filename());
+            const std::string name = PathToUtf8(path.filename());
             if (name.find(".zenasset.tmp.") != std::string::npos || name.find(".zenasset.tmp-") != std::string::npos)
             {
                 std::filesystem::remove(path, error);

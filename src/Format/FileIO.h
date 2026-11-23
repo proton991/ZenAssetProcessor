@@ -20,6 +20,11 @@ public:
     CacheFileLock(const CacheFileLock&)            = delete;
     CacheFileLock& operator=(const CacheFileLock&) = delete;
     ~CacheFileLock();
+    bool IsOpen() const
+    {
+        return m_handle != -1;
+    }
+    bool   TryAcquireDirectory(const std::filesystem::path& path, bool collecting);
     Status Acquire(const std::filesystem::path& path, bool exclusive, bool create, bool wait, const Cancellation* cancellation);
 
 private:

@@ -85,6 +85,26 @@ Status CacheFileLock::Acquire(const std::filesystem::path& path,
     }
     return status;
 }
+// A portable reader can lock the model directory itself using read access.
+bool CacheFileLock::TryAcquireDirectory(const std::filesystem::path& path, bool collecting)
+{
+#if defined(_WIN32)
+    // Sharing delete access controls the directory handle itself. Writers can
+    // still create and atomically replace its children while readers are active.
+    const DWORD  share  = FILE_SHARE_READ | FILE_SHARE_WRITE | (collecting ? FILE_SHARE_DELETE : 0);
+    const HANDLE handle = CreateFileW(path.c_str(), collecting ? DELETE : FILE_LIST_DIRECTORY, share, nullptr, OPEN_EXISTING,
+                                      FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+    m_handle            = reinterpret_cast<intptr_t>(handle);
+#else
+    m_handle = open(path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    if (m_handle != -1 && flock(static_cast<int>(m_handle), LOCK_NB | (collecting ? LOCK_EX : LOCK_SH)) != 0)
+    {
+        close(static_cast<int>(m_handle));
+        m_handle = -1;
+    }
+#endif
+    return IsOpen();
+}
 Status MakePath(std::string_view utf8, std::filesystem::path& path)
 {
     Status status;

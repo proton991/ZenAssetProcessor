@@ -16,6 +16,16 @@ std::string DigestText(AssetDigest digest)
     return text;
 }
 
+bool IsDigestText(const std::string& value)
+{
+    bool valid = value.size() == 16;
+    for (char c : value)
+    {
+        valid = valid && ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'));
+    }
+    return valid;
+}
+
 bool HashAssetFile(const std::string& path, AssetDigest& digest, SceneImportControl* control)
 {
     std::error_code             error;

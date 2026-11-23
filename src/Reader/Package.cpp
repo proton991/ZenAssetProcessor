@@ -86,6 +86,36 @@ struct ResourceFile
     uint64_t           length{0};
     uint64_t           lastEnd{0};
     mutable std::mutex mutex;
+    Status             OpenHeader(const std::filesystem::path&              path,
+                                  const ReadLimits&                         limits,
+                                  const Cancellation*                       cancellation,
+                                  std::array<uint8_t, detail::HeaderBytes>& header)
+    {
+        Close();
+        const detail::FileOpenResult opened = detail::OpenFile(path);
+        file                                = opened.file;
+        Status status                       = opened.status;
+        if (status.Succeeded())
+        {
+            if (!detail::FileLength(file, length))
+            {
+                status = {StatusCode::IOError, "Could not determine package file size"};
+            }
+            else if (length < header.size())
+            {
+                status = {StatusCode::InvalidData, "Package header is truncated"};
+            }
+            else if (length > limits.maxFileBytes)
+            {
+                status = {StatusCode::ResourceLimit, "Package file exceeds the configured size limit"};
+            }
+            else
+            {
+                status = detail::ReadFileBytes(file, header.data(), header.size(), cancellation);
+            }
+        }
+        return status;
+    }
     Status             OpenPart(const std::filesystem::path& path)
     {
         const detail::FileOpenResult opened = detail::OpenStoredPart(path, StatusCode::InvalidData);
@@ -115,13 +145,18 @@ struct ResourceFile
         nextOffset = UINT64_MAX;
         return status;
     }
-    ~ResourceFile()
+    void Close()
     {
         if (file != nullptr)
         {
             ZENASSET_MEASURE_SCOPE(FileClose);
             std::fclose(file);
+            file = nullptr;
         }
+    }
+    ~ResourceFile()
+    {
+        Close();
     }
 };
 
@@ -440,7 +475,6 @@ PackageResult OpenPackage(const std::string& path, const ReadLimits& limits, con
     std::unique_ptr<Package::State> state(new Package::State);
     state->maxCodecBytes = limits.maxCodecBytes;
     std::filesystem::path filePath;
-    uint64_t              fileBytes = 0;
     if (IsCancelled(cancellation))
     {
         result.status = {StatusCode::Cancelled, "Package open cancelled"};
@@ -449,37 +483,38 @@ PackageResult OpenPackage(const std::string& path, const ReadLimits& limits, con
     {
         result.status = detail::MakePath(path, filePath);
     }
+    const std::filesystem::path directoryPath = filePath.has_parent_path() ? filePath.parent_path() : ".";
+    const std::filesystem::path gate          = directoryPath / ".zen-reader.lock";
     if (result.status.Succeeded())
     {
-        result.status = state->lease.Acquire(filePath.parent_path() / ".zen-reader.lock", false, false, true, cancellation);
+        result.status = state->lease.Acquire(gate, false, false, true, cancellation);
     }
-    if (result.status.Succeeded())
-    {
-        const detail::FileOpenResult opened = detail::OpenFile(filePath);
-        result.status                       = opened.status;
-        state->manifest.file                = opened.file;
-    }
-    if (result.status.Succeeded())
-    {
-        if (!detail::FileLength(state->manifest.file, fileBytes))
-        {
-            result.status = {StatusCode::IOError, "Could not determine package file size"};
-        }
-        else if (fileBytes < detail::HeaderBytes)
-        {
-            result.status = {StatusCode::InvalidData, "Package header is truncated"};
-        }
-        else if (fileBytes > limits.maxFileBytes)
-        {
-            result.status = {StatusCode::ResourceLimit, "Package file exceeds the configured size limit"};
-        }
-    }
-
     std::array<uint8_t, detail::HeaderBytes> header{};
     if (result.status.Succeeded())
     {
-        result.status = detail::ReadFileBytes(state->manifest.file, header.data(), header.size(), cancellation);
+        result.status = state->manifest.OpenHeader(filePath, limits, cancellation, header);
     }
+    if (result.status.Succeeded() && !state->lease.IsOpen()
+        && detail::Read32(header.data() + 20) == detail::PartDirectoryEntryBytes)
+    {
+        if (!state->lease.TryAcquireDirectory(directoryPath, false))
+        {
+            // A collector takes the regular reader gate first. Join that gate
+            // when publication has turned a portable copy into a managed cache.
+            result.status = state->lease.Acquire(gate, false, false, true, cancellation);
+            if (result.status.Succeeded() && !state->lease.IsOpen())
+            {
+                result.status = {StatusCode::IOError, "Cannot pin portable scene directory"};
+            }
+        }
+        if (result.status.Succeeded())
+        {
+            // A publication could have replaced the probed manifest before
+            // the lease was acquired. Select the generation under that lease.
+            result.status = state->manifest.OpenHeader(filePath, limits, cancellation, header);
+        }
+    }
+    uint64_t       fileBytes     = state->manifest.length;
     const uint64_t resourceCount = detail::Read64(header.data() + 32);
     const uint32_t entryBytes    = detail::Read32(header.data() + 20);
     const bool     directory     = entryBytes == detail::PartDirectoryEntryBytes;

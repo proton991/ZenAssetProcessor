@@ -1003,9 +1003,10 @@ bool TestDirectoryScene(const std::filesystem::path& directory)
 {
     const std::filesystem::path root  = directory / "directory-cache";
     const std::filesystem::path model = root / "model";
-    const std::string           path  = (model / "reference-test.zenasset").string();
-    std::filesystem::create_directories(model);
-    std::ofstream(model / "source.json") << "{}";
+    const std::filesystem::path inputModel = directory / "model.gltf";
+    std::ofstream(inputModel) << "{}";
+    std::string  path;
+    const Status claim  = SceneDirectoryManifest(root.string(), inputModel.string(), {}, {}, path);
     Scene source = MakeScene();
     source.images.push_back(source.images.front());
     SceneWriteOptions options;
@@ -1013,11 +1014,18 @@ bool TestDirectoryScene(const std::filesystem::path& directory)
     options.compression     = {TransportCodec::Zstandard, 3, true};
     ScenePartWriteStats stats;
     options.partStats       = &stats;
-    Status          written = WriteScene(path, source, options);
+    Status          written = claim.Succeeded() ? WriteScene(path, source, options) : claim;
     bool            valid   = Check(written.Succeeded(), written.message.c_str());
     SceneReadResult eager   = ReadScene(path);
     valid &= Check(eager.scene && scene_test::Same(source, *eager.scene), "Directory eager scene must preserve every field");
+    // A deployed copy can contain only the manifest and its parts. The reader
+    // must pin it across a later recook without writing a sidecar.
+    std::error_code gateError;
+    valid                  &= Check(std::filesystem::remove(model / ".zen-reader.lock", gateError),
+                                    "Prepare a portable package without a reader gate");
     SceneReadResult pinned = ReadSceneDeferredImages(path);
+    valid &=
+        Check(pinned.scene && !std::filesystem::exists(model / ".zen-reader.lock"), "Portable open requires only read access");
     PackageResult   opened = OpenPackage(path);
     valid &= Check(opened.package && opened.package->Parts().size() == 2, "Two images with identical encodings share one part");
     if (opened.package && pinned.scene)
@@ -1071,9 +1079,23 @@ bool TestDirectoryScene(const std::filesystem::path& directory)
                        "A same-stamp content edit at publication preserves the preceding manifest");
         pinned.scene.reset();
         opened.package.reset();
-        valid &= Check(TrimSceneDirectoryCache(root.string(), 1, other).Succeeded() && !std::filesystem::exists(path)
-                           && std::filesystem::is_empty(model / "geometry") && std::filesystem::is_empty(model / "textures"),
+        const std::filesystem::path uppercase  = model / "retained.ZENASSET";
+        const std::filesystem::path standalone = root / "export.zenasset";
+        std::filesystem::rename(path, uppercase, gateError);
+        valid                                  &= Check(!gateError && WriteScene(standalone.string(), source).Succeeded(),
+                                                        "Prepare standalone export and uppercase cache variant");
+        const std::filesystem::path artist      = root / "artist";
+        const std::string           exportPath  = (artist / "approved.zenasset").string();
+        SceneWriteOptions           exportOptions;
+        exportOptions.directoryLayout = true;
+        valid &= Check(WriteScene(exportPath, source, exportOptions).Succeeded(), "Prepare a directory export");
+        std::ofstream(artist / "source.json") << R"({"author":"artist"})";
+        valid &= Check(TrimSceneDirectoryCache(root.string(), 1, other).Succeeded() && !std::filesystem::exists(uppercase)
+                           && std::filesystem::exists(standalone) && std::filesystem::is_empty(model / "geometry")
+                           && std::filesystem::is_empty(model / "textures"),
                        "Eviction reclaims unreferenced parts after the last lease releases its generation");
+        valid &= Check(ReadScene(exportPath).status.Succeeded(),
+                       "Budget eviction preserves a directory export with unrelated source metadata");
     }
     return valid;
 }
