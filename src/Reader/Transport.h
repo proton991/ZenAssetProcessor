@@ -4,6 +4,11 @@
 
 namespace zenasset::detail
 {
+ResourceData ReadResourceData(FILE*                 file,
+                              const ResourceRecord& record,
+                              uint64_t              maxScratchBytes,
+                              const Cancellation*   cancellation,
+                              TransferProgress      progress = {});
 // File is positioned at the payload. Caller owns output and the file lock.
 Status ReadZstandardResource(FILE*                 file,
                              const ResourceRecord& record,

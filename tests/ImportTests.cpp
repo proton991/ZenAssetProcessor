@@ -145,6 +145,97 @@ void TrackWriteProgress(void* user, uint64_t completed, uint64_t total)
         progress.cancellation->Cancel();
     }
 }
+struct StreamObservation
+{
+    std::filesystem::path manifest;
+    bool                  reachedMeshes{false};
+    bool                  texturesOnDisk{false};
+    bool                  manifestOnDisk{false};
+    bool                  cancelAtMeshes{false};
+};
+void ObserveStream(void* user, zenasset::SceneImportStage stage)
+{
+    StreamObservation& state = *static_cast<StreamObservation*>(user);
+    if (stage == zenasset::SceneImportStage::ProcessingMeshes)
+    {
+        std::error_code error;
+        for (std::filesystem::directory_iterator it(state.manifest.parent_path() / "textures", error), end; !error && it != end;
+             it.increment(error))
+        {
+            state.texturesOnDisk |= it->path().extension() == ".zenpart";
+        }
+        state.manifestOnDisk = std::filesystem::exists(state.manifest, error);
+        state.reachedMeshes  = true;
+    }
+}
+bool CancelStream(void* user)
+{
+    const StreamObservation& state = *static_cast<StreamObservation*>(user);
+    return state.cancelAtMeshes && state.reachedMeshes;
+}
+bool CheckStreamedImages(const std::string& path, const zenasset::Scene& expected)
+{
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path()
+        / ("zen_import_parts_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    zenasset::SceneWriteOptions options;
+    options.directoryLayout       = true;
+    options.compression.transport = zenasset::TransportCodec::Zstandard;
+    std::string manifest;
+    bool        valid = Check(
+        zenasset::SceneDirectoryManifest(root.string(), path, options.metadata, options.compression, manifest).Succeeded(),
+        "Directory import must resolve the fixture destination");
+    const zenasset::SceneImportImageCache target{manifest, options};
+    zenasset::SceneImportContext          context;
+    context.captureInputHashes      = true;
+    context.retainEncodedGltfImages = true;
+    context.imageCache              = &target;
+    StreamObservation            state{std::filesystem::u8path(manifest)};
+    zenasset::SceneImportRequest request;
+    request.path = path;
+    request.control =
+        std::make_shared<zenasset::SceneImportControl>(zenasset::SceneImportCallbacks{&state, CancelStream, ObserveStream});
+    if (valid)
+    {
+        state.cancelAtMeshes                        = true;
+        const zenasset::SceneImportResult cancelled = zenasset::ImportScene(request, context);
+        valid &= Check(cancelled.status == zenasset::StatusCode::Cancelled && !cancelled.asset && state.texturesOnDisk
+                           && !state.manifestOnDisk,
+                       "Cancelling after streaming textures must leave the manifest unpublished");
+        valid &= Check(zenasset::TrimSceneDirectoryCache(root.string(), 0, manifest).Succeeded(),
+                       "Unpublished parts must be collectible");
+        state  = {std::filesystem::u8path(manifest)};
+        request.control =
+            std::make_shared<zenasset::SceneImportControl>(zenasset::SceneImportCallbacks{&state, nullptr, ObserveStream});
+        const zenasset::SceneImportResult streamed  = zenasset::ImportScene(request, context);
+        valid                                      &= Check(streamed.asset && state.texturesOnDisk && !state.manifestOnDisk,
+                                                            "Import must stage parts before processing meshes");
+        if (valid)
+        {
+            valid &= Check(zenasset::TrimSceneDirectoryCache(root.string(), 0, manifest).Succeeded(),
+                           "Active import descriptors must survive eviction");
+            for (size_t i = 0; valid && i < expected.images.size(); ++i)
+            {
+                std::shared_ptr<const zenasset::ImagePixels> pixels;
+                valid &= Check(i < streamed.asset->images.size()
+                                   && zenasset::ResolveImagePixels(streamed.asset->images[i].pixels, pixels).Succeeded()
+                                   && pixels && pixels->bytes == expected.images[i].pixels->bytes
+                                   && pixels->mips == expected.images[i].pixels->mips,
+                               "Unpublished parts must independently resolve to the original image");
+            }
+            zenasset::ScenePartWriteStats stats;
+            options.partStats = &stats;
+            valid &=
+                Check(zenasset::RecordDirectoryInputs(*streamed.asset, options.metadata).Succeeded()
+                          && zenasset::WriteScene(manifest, *streamed.asset, options).Succeeded() && stats.imagesEncoded == 0
+                          && stats.imagesReused == expected.images.size() && zenasset::ReadScene(manifest).status.Succeeded(),
+                      "Final assembly must reuse every streamed image and publish a readable scene");
+        }
+    }
+    std::error_code error;
+    std::filesystem::remove_all(root, error);
+    return valid;
+}
 bool CheckEncodedImages(const std::string& path)
 {
     zenasset::SceneImportRequest request;
@@ -157,6 +248,7 @@ bool CheckEncodedImages(const std::string& path)
     bool valid = Check(resident.asset && deferred.asset, "Both image storage policies must import successfully");
     if (valid)
     {
+        valid &= CheckStreamedImages(path, *resident.asset);
         valid &= Check(!resident.asset->images.empty() && resident.asset->images.size() == deferred.asset->images.size(),
                        "Deferred import must preserve images");
         for (size_t index = 0; valid && index < resident.asset->images.size(); ++index)

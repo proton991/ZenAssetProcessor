@@ -17,24 +17,12 @@ class EncodedImageSource final : public detail::ValidatedImagePayloadSource
 {
 public:
     EncodedImageSource(const uint8_t* data, size_t size, uint64_t decodedBytes, const ImagePixels& image, bool validated) :
-        m_encoded(data, size),
-        m_decodeBudget(decodedBytes * 2),
-        m_format(image.format),
-        m_width(image.width),
-        m_height(image.height),
-        m_levels(image.mips.size()),
-        m_validated(validated)
+        m_encoded(data, size), m_decodeBudget(decodedBytes * 2), m_layout(image), m_validated(validated)
     {}
 
     bool HasValidatedPixels(const ImagePixels& image) const override
     {
-        bool valid = m_validated && image.width == m_width && image.height == m_height && image.format == m_format
-                  && image.arrayLayers == 1 && image.mips.size() == m_levels && image.bytes.empty();
-        for (const std::vector<uint8_t>& mip : image.mips)
-        {
-            valid &= mip.empty();
-        }
-        return valid;
+        return m_validated && m_layout.Matches(image);
     }
 
     Status Read(std::shared_ptr<const ImagePixels>& pixels, const Cancellation* cancellation) const override
@@ -57,7 +45,7 @@ public:
             ImageBudget                  budget(std::min(m_decodeBudget, maxBytes));
             ImportErrors                 errors;
             errors.Reset(nullptr, &budget);
-            resident->format = m_format;
+            resident->format = m_layout.format;
             resident->bytes  = DecodeImagePixels(m_encoded.data(), m_encoded.size(), resident->width, resident->height, errors,
                                                  &resident->mips);
             if (errors.Failed())
@@ -79,10 +67,7 @@ public:
 private:
     zen::HeapVector<uint8_t> m_encoded;
     uint64_t                 m_decodeBudget;
-    PixelFormat              m_format;
-    uint32_t                 m_width;
-    uint32_t                 m_height;
-    size_t                   m_levels;
+    detail::DeferredImageLayout m_layout;
     bool                     m_validated;
 };
 

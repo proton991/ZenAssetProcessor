@@ -133,7 +133,7 @@ SceneImportResult ImportScene(const SceneImportRequest& request, const SceneImpo
             result = importers[format - formats]->Import(
                 request, BackendContext{&workers, &images, context.maxSourceBytes, context.maxObjGeometryBytes, &geometry,
                                         context.retainEncodedGltfImages, context.maxConcurrentImageDecodes,
-                                        context.previousReference.get(), context.captureInputHashes});
+                                        context.previousReference.get(), context.captureInputHashes, context.imageCache});
             result.format          = std::string(format->id);
             result.importerVersion = format->importerVersion;
         }

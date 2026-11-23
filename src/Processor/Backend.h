@@ -17,6 +17,7 @@ struct BackendContext
     uint32_t        maxConcurrentImageDecodes{0};
     const Package*  previousReference{nullptr};
     bool            captureInputHashes{false};
+    const SceneImportImageCache* imageCache{nullptr};
 };
 class ISceneImporter
 {

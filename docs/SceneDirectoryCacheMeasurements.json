@@ -2053,5 +2053,155 @@
         "ZenApp render: 1280x720, async-compute=disabled by configuration, RHI=threaded, ray-provider=compute, ray-query=available, diagnostics=false"
       ]
     }
+  },
+  "streamedSourceOpen": {
+    "scope": "Release CPU LoadSourceScene with editor source-open settings, New Sponza reference profile, 8 decode slots and read workers. Three separate processes and empty application cache directories per configuration, warm OS files. First/all texture times poll the filesystem every 30 ms from process launch.",
+    "previousEngine": "02ff3c50ce70aa1d2cc838cf6c67a5afd99e2e35",
+    "beforeProbeSha256": "d96a80d3586264fac3834e45065227cad1b489a9fb03bf1801bd7e2b96719427",
+    "afterProbeSha256": "ca3c8981b69f3025ee0accaf5558173eef2aa79729c8da57adcb3122ccbed1d0",
+    "before": [
+      {
+        "sourceOpenSeconds": 11.397,
+        "cacheHit": false,
+        "peakWorkingSetBytes": 4631842816,
+        "firstTexturePartSeconds": 4.701,
+        "allTexturePartsSeconds": 9.987
+      },
+      {
+        "sourceOpenSeconds": 11.599,
+        "cacheHit": false,
+        "peakWorkingSetBytes": 4629454848,
+        "firstTexturePartSeconds": 4.886,
+        "allTexturePartsSeconds": 10.202
+      },
+      {
+        "sourceOpenSeconds": 11.592,
+        "cacheHit": false,
+        "peakWorkingSetBytes": 4629442560,
+        "firstTexturePartSeconds": 4.79,
+        "allTexturePartsSeconds": 10.043
+      }
+    ],
+    "after": [
+      {
+        "sourceOpenSeconds": 8.511,
+        "cacheHit": false,
+        "peakWorkingSetBytes": 1954304000,
+        "firstTexturePartSeconds": 0.478,
+        "allTexturePartsSeconds": 5.515
+      },
+      {
+        "sourceOpenSeconds": 8.508,
+        "cacheHit": false,
+        "peakWorkingSetBytes": 1946267648,
+        "firstTexturePartSeconds": 0.431,
+        "allTexturePartsSeconds": 5.469
+      },
+      {
+        "sourceOpenSeconds": 8.476,
+        "cacheHit": false,
+        "peakWorkingSetBytes": 1921265664,
+        "firstTexturePartSeconds": 0.431,
+        "allTexturePartsSeconds": 5.468
+      }
+    ],
+    "liveSourceHitSeconds": 1.054,
+    "matchingScenePayloadRecords": 479,
+    "cliIncremental": {
+      "initial": {
+        "images_encoded": 72,
+        "images_reused": 0,
+        "geometry_reused": false,
+        "part_bytes_written": 2395251383
+      },
+      "mesh": {
+        "images_encoded": 0,
+        "images_reused": 72,
+        "geometry_reused": false,
+        "part_bytes_written": 72506376
+      },
+      "texture": {
+        "images_encoded": 1,
+        "images_reused": 71,
+        "geometry_reused": true,
+        "part_bytes_written": 0
+      },
+      "unchanged": {
+        "images_encoded": 0,
+        "images_reused": 72,
+        "geometry_reused": true,
+        "part_bytes_written": 0
+      }
+    },
+    "render": {
+      "args": [
+        "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe",
+        "--setup=E:/Dev/ZenEngine/build/streamed-source/new-sponza.zenrender",
+        "--frames=1",
+        "--windowed",
+        "--width=1280",
+        "--height=720",
+        "--async-compute=0",
+        "--backend=compute",
+        "--no-ui",
+        "--read-workers=8",
+        "--capture=E:/Dev/ZenEngine/build/streamed-source/new-sponza.ppm"
+      ],
+      "exeSha256": "a7a4d8662f66261583e3bd0067a1bed9c08b09b2e61cd035c56ead0fff12fedb",
+      "setupSha256": "1259dcfceedfbd6007f40f1fc3eb6aaf4dd833ee387f000430f8433e2b1640b7",
+      "manifest": "E:/Dev/ZenEngine/Cache/SceneAssets/NewSponza_Main_glTF_003/reference-cdf12be4cc4df0e6.zenasset",
+      "manifestSha256": "acda08ccb4331f0071e20147391262c211d8dbf0b8b080d228259e7fb79df556",
+      "environmentSha256": "2ad269b9e81e8cb9489dba6a2c61f2063b46b450146e2344e6d6e1da2ce60626",
+      "all74SourceHashesMatch": true,
+      "frameSha256": "ee0ddf1b1ed030a293d2104fdf56b50fe5907db9714510e178e29652f5ef8277",
+      "referenceSha256": "ee0ddf1b1ed030a293d2104fdf56b50fe5907db9714510e178e29652f5ef8277",
+      "configuration": {
+        "sceneFrames": 1,
+        "sceneSeconds": 0,
+        "width": 1280,
+        "height": 720,
+        "framebufferWidth": 1280,
+        "framebufferHeight": 720,
+        "fullscreen": false,
+        "backend": "compute",
+        "gather": "inactive",
+        "giWidth": 0,
+        "giHeight": 0,
+        "referenceSamples": 0,
+        "referenceTileStride": 1,
+        "giDenoiser": true,
+        "glossyDenoiser": false,
+        "nativeShadowReuse": false,
+        "giSpatialFilter": true,
+        "rayTracingPipeline": false,
+        "radianceCacheCapacity": 0,
+        "nativeProbeRaySlots": 0,
+        "worldCacheCapacity": 0,
+        "screenProbeCount": 0,
+        "nativeProbeBenchmark": false,
+        "radianceCacheKeyBits": 64,
+        "bicubicHistory": true,
+        "dataDrivenAntiLag": true,
+        "youngReceiverSamples": true,
+        "antiFirefly": true,
+        "footprintReceivers": true,
+        "restirSpatialSamples": 4,
+        "restirSpatialVisibility": true,
+        "hardwareFeatureMask": 0,
+        "deviceMemoryLimitMB": 0,
+        "tierFallback": "",
+        "fieldTraversal": false,
+        "voxelLighting": true,
+        "asyncCompute": "disabled by configuration",
+        "lightingComponents": 10,
+        "hybridComponents": 18,
+        "environmentCubeSize": 512,
+        "gpuCullingRequested": true,
+        "gpuCullingPath": "gpu_indirect",
+        "gpuCullingFallbackReason": "",
+        "gpuCullingCandidates": 401,
+        "gpuCullingUploadedBytes": 0
+      }
+    }
   }
 }

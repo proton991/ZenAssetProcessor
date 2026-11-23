@@ -126,6 +126,15 @@ to bound how many large textures are decoded at once; mesh processing keeps ever
 `workerCount` worker. Image-processing cooks still require resident images; the
 default import policy is unchanged.
 
+Reference glTF imports targeting a directory cache can also set `captureInputHashes`
+and pass a `SceneImportImageCache` through `SceneImportContext::imageCache` with
+`retainEncodedGltfImages` enabled. Each worker reads an external texture on demand
+and writes its native part while the pixels are resident. Returned descriptors
+can resolve those parts before publication. Call `WriteScene` with the same
+manifest and options to assemble the geometry and publish the complete scene.
+The editor and `zenassetc cook --layout directory` use this for reference imports.
+Processing operations that need resident pixels keep their existing path.
+
 `SceneImportContext::maxGeometryBytes` separately admits glTF/FBX geometry,
 skin, morph, custom-attribute and animation storage before allocation. It defaults
 to 16 GiB; `zenassetc cook --geometry-budget BYTES` changes it. Capacity growth and

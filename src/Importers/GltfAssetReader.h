@@ -23,13 +23,24 @@ class element;
 
 namespace zenasset
 {
+namespace detail
+{
+class ImportImageWriter;
+}
 // Per-import paths are frozen before texture workers start.
 struct GltfFileProgress
 {
-    SceneImportControl*      control{nullptr};
-    std::string              root;
-    std::vector<std::string> imageFiles;
-    std::vector<uint64_t>    imageFileSizes;
+    struct ImageFile
+    {
+        std::string path;
+        uint64_t    size{0};
+        size_t      dependency{SIZE_MAX};
+        uint64_t    digest{0};
+    };
+    SceneImportControl*        control{nullptr};
+    std::string                root;
+    zen::HeapVector<ImageFile> imageFiles;
+    bool                       captureImageReads{false};
     void                     CompleteFile(const std::string& path) const;
     void                     CompleteImage(uint32_t index) const;
 };
@@ -70,7 +81,8 @@ private:
     void                               LoadGltfInstances(uint32_t nodeIndex, Scene& scene);
     std::shared_ptr<const ImagePixels> DecodeGltfImage(uint32_t                   imageIndex,
                                                        uint32_t                   outputIndex,
-                                                       std::counting_semaphore<>* decodeSlots);
+                                                       std::counting_semaphore<>* decodeSlots,
+                                                       detail::ImportImageWriter* imageWriter);
 
     struct PrimitiveData;
 
@@ -108,6 +120,7 @@ private:
     ImageBudget*                m_imageBudget{nullptr};
     GeometryBudget*             m_geometryBudget{nullptr};
     const Package*              m_previousReference{nullptr};
+    const SceneImportImageCache* m_imageCache{nullptr};
     bool                        m_captureInputHashes{false};
     bool                        m_retainEncodedImages{false};
     uint32_t                    m_maxConcurrentImageDecodes{0};

@@ -1,6 +1,7 @@
 #include "Reader/Transport.h"
 #include "Diagnostics/StageMeasurements.h"
 #include "Format/FileIO.h"
+#include "Format/PackageLayout.h"
 #include "Format/AssetKernels.h"
 #include <algorithm>
 #define ZSTD_STATIC_LINKING_ONLY
@@ -9,6 +10,32 @@
 
 namespace zenasset::detail
 {
+ResourceData ReadResourceData(FILE*                 file,
+                              const ResourceRecord& record,
+                              uint64_t              maxScratchBytes,
+                              const Cancellation*   cancellation,
+                              TransferProgress      progress)
+{
+    ResourceData result;
+    result.bytes.resize(static_cast<size_t>(record.decodedBytes));
+    if (record.codec == TransportCodec::Zstandard)
+    {
+        result.status = detail::ReadZstandardResource(file, record, result.bytes, maxScratchBytes, result.scratchBytes,
+                                                      cancellation, progress);
+    }
+    else
+    {
+        result.status = detail::ReadFileBytes(file, result.bytes.data(), result.bytes.size(), cancellation, progress);
+        ZENASSET_MEASURE_BEGIN(checksum, Checksum);
+        if (result.status.Succeeded() && detail::HashBytes(result.bytes.data(), result.bytes.size()) != record.checksum)
+        {
+            result.status = {StatusCode::InvalidData, "Package resource checksum does not match"};
+        }
+        ZENASSET_MEASURE_END(checksum);
+    }
+    return result;
+}
+
 Status ReadZstandardResource(FILE*                 file,
                              const ResourceRecord& record,
                              std::span<std::byte>  output,

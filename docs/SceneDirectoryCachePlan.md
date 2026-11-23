@@ -120,3 +120,19 @@ The earlier fresh-cook numbers measure `zenassetc`. The editor also normalizes a
 The first two rows time three fresh processes calling the editor's CPU source loader, each with an empty application cache and warm OS files. Working set is the median of the sampled peaks. The final row is a single verified cache hit in a new process using the default engine cache root. Directory opens allow up to eight source decodes, eight writer slots and eight reader workers. The reader and writer keep their existing byte limits.
 
 The release ZenApp opened the editor-published manifest in 0.95 s of CPU scene load and reached ready in 8.14 s, windowed at 1280 × 720 with the compute backend and async compute disabled. All 479 non-metadata resource records matched the previous flat package. The measurements JSON includes the individual runs, manifest, executable and setup hashes, recorded extents and launch arguments.
+
+## Streaming glTF textures during import
+
+For a runtime reference glTF directory-cache miss, each worker reads an external image on demand, hashes the exact bytes, decodes and validates the pixels, then writes its native texture part before releasing its buffers. A shared reader lease keeps staged parts available to source consumers and protects them from eviction. The final writer reuses matching records, checks source freshness, and atomically publishes the manifest after geometry and scene-wide validation finish. Embedded textures are processed from the glTF buffer. Geometry accessors, mesh conversion and scene-wide cooking still operate on resident data.
+
+The editor and reference directory CLI cook share this path. Image-processing profiles continue to use resident pixels. When the cache cannot accept an image during import, the runtime source loader can retain its encoded bytes and use the existing publication and fallback paths.
+
+| New Sponza, empty editor cache | Previous build | Streaming build |
+| --- | ---: | ---: |
+| First texture part visible on disk | 4.79 s | 0.43 s |
+| Source open including cache write and reopen | 11.59 s | 8.51 s |
+| Peak process working set | 4.31 GiB | 1.81 GiB |
+
+Values are medians of three release CPU-loader runs per build with warm OS files. The source reopened from the live cache in 1.05 s. A release ZenApp capture from the live manifest matched the earlier 1280 × 720 frame byte for byte. All 479 non-metadata records matched the original flat package.
+
+On a separate copy of New Sponza, changing two vertex positions reused all 72 images. Replacing one image with a different image already present in the scene re-encoded one image, reused the other 71 and the geometry, and reused the identical stored part. An unchanged recook wrote zero payload bytes. Cancellation after texture staging left the manifest unpublished. A retained descriptor could still resolve its pixels during cache eviction. Individual timings, memory measurements, capture settings and hashes are in `SceneDirectoryCacheMeasurements.json`.

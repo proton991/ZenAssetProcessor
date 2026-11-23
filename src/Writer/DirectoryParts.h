@@ -7,6 +7,8 @@
 
 namespace zenasset::detail
 {
+FileOpenResult OpenStoredPart(const std::filesystem::path& path);
+Status CheckStoredFile(const std::filesystem::path& path, uint64_t size, uint64_t digest, const Cancellation* cancellation);
 FileOpenResult OpenTemporary(const std::filesystem::path& destination, std::filesystem::path& temporary);
 
 class DirectoryParts
@@ -14,6 +16,7 @@ class DirectoryParts
 public:
     DirectoryParts(const std::filesystem::path& root, bool durable, const Cancellation* cancellation);
     ~DirectoryParts();
+    ScenePartWriteStats          ImageStats() const;
     Status   Begin(const std::filesystem::path& manifest, const SceneWriteOptions& options);
     bool     ReuseGeometry(ResourceRecord& record);
     bool     ReuseImage(ResourceRecord& record) const;
@@ -21,6 +24,10 @@ public:
     Status   Geometry(ResourceRecord& record, std::span<const std::byte> bytes);
     Status   Finish();
     uint64_t GeometryDigest() const;
+    const std::filesystem::path& Root() const
+    {
+        return m_root;
+    }
     void     CountImage(bool reused) const;
     void     SetImageCount(uint64_t count);
 

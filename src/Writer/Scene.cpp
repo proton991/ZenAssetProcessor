@@ -7,6 +7,8 @@
 #include "Format/FileIO.h"
 #include "Writer/Compression.h"
 #include "Writer/PackageWriter.h"
+#include "Writer/ImportImageWriter.h"
+#include "Reader/Transport.h"
 #include "Format/WorkerPool.h"
 #include "Format/MeshEncoding.h"
 #include <atomic>
@@ -67,6 +69,123 @@ public:
     }
 };
 
+// A staged image owns a reader lease on the directory. Consumers can resolve the
+// native part even if cache publication fails or another generation replaces it.
+class ImportedImagePart final : public detail::ValidatedImagePayloadSource
+{
+public:
+    ImportedImagePart(const detail::DirectoryParts&          parts,
+                      std::shared_ptr<detail::CacheFileLock> pin,
+                      const ResourceRecord&                  record,
+                      const ImageAsset&                      image,
+                      const SceneWriteOptions&               options) :
+        m_root(parts.Root()),
+        m_path(m_root / detail::PartName(detail::PartKind::Image, record.checksum)),
+        m_pin(std::move(pin)),
+        m_record(record),
+        m_layout(*image.pixels),
+        m_name(image.name),
+        m_compression(options.compression),
+        m_limits(options.limits),
+        m_durable(options.durable)
+    {}
+
+    bool HasValidatedPixels(const ImagePixels& descriptor) const override
+    {
+        return m_layout.Matches(descriptor)
+            && detail::CheckStoredFile(m_path, m_record.storedBytes, m_record.checksum, nullptr).Succeeded();
+    }
+
+    bool Reuse(const detail::DirectoryParts& parts,
+               const SceneWriteOptions&      options,
+               const ImageAsset&             image,
+               uint32_t                      index,
+               ResourceRecord&               record,
+               const Cancellation*           cancellation) const
+    {
+        bool reusable =
+            parts.Root() == m_root && image.name == m_name && m_layout.Matches(*image.pixels)
+            && m_record.id == detail::ResourceId(ResourceType::Image, index)
+            && image.pixels->sourceImageChecksum == m_record.sourceImageChecksum
+            && !HasProcessingOperations(options.metadata.processing) && options.compression.transport == m_compression.transport
+            && options.compression.zstandardLevel == m_compression.zstandardLevel && (!options.durable || m_durable)
+            && options.limits.maxArrayElements >= m_limits.maxArrayElements && options.limits.maxStringBytes >= m_name.size()
+            && detail::CheckStoredFile(m_path, m_record.storedBytes, m_record.checksum, cancellation).Succeeded();
+        if (reusable)
+        {
+            record = m_record;
+        }
+        return reusable;
+    }
+
+    Status Read(std::shared_ptr<const ImagePixels>& pixels, const Cancellation* cancellation) const override
+    {
+        return ReadBounded(pixels, cancellation, m_limits.maxAllocationBytes);
+    }
+
+    Status ReadBounded(std::shared_ptr<const ImagePixels>& pixels,
+                       const Cancellation*                 cancellation,
+                       uint64_t                            maxBytes) const override
+    {
+        uint64_t budget = std::min(maxBytes, m_limits.maxAllocationBytes);
+        Status   status;
+        pixels.reset();
+        if (m_record.decodedBytes > budget || m_record.decodedBytes > m_limits.package.maxChunkBytes)
+        {
+            status = {StatusCode::ResourceLimit, "Imported image part exceeds read budget"};
+        }
+        if (status.Succeeded())
+        {
+            detail::FileOpenResult opened = detail::OpenStoredPart(m_path);
+            status                        = opened.status;
+            if (opened.file)
+            {
+                uint64_t length = 0;
+                if (!detail::FileLength(opened.file, length) || length != m_record.storedBytes
+                    || !detail::SeekFile(opened.file, 0))
+                {
+                    status = {StatusCode::InvalidData, "Imported image part length changed"};
+                }
+                if (status.Succeeded())
+                {
+                    budget            -= m_record.decodedBytes;
+                    ResourceData data  = detail::ReadResourceData(
+                        opened.file, m_record, std::min(budget, m_limits.package.maxCodecBytes), cancellation);
+                    status = data.status;
+                    if (status.Succeeded())
+                    {
+                        ImageAsset                 loaded;
+                        detail::SceneArchive<true> archive(data.bytes, nullptr, m_limits, budget, cancellation,
+                                                           m_record.version);
+                        archive(loaded);
+                        status = archive.Finish();
+                        if (status.Succeeded() && !ValidateImagePixels(loaded.pixels))
+                        {
+                            status = {StatusCode::InvalidData, "Invalid imported image part"};
+                        }
+                        if (status.Succeeded())
+                        {
+                            pixels = std::move(loaded.pixels);
+                        }
+                    }
+                }
+                std::fclose(opened.file);
+            }
+        }
+        return status;
+    }
+
+private:
+    std::filesystem::path                  m_root, m_path;
+    std::shared_ptr<detail::CacheFileLock> m_pin;
+    ResourceRecord                         m_record;
+    detail::DeferredImageLayout            m_layout;
+    std::string                            m_name;
+    CompressionSettings                    m_compression;
+    SceneReadLimits                        m_limits;
+    bool                                   m_durable;
+};
+
 class SceneEncoder : public detail::ResourceEncoder
 {
 public:
@@ -77,8 +196,15 @@ public:
         resident.name = value.name;
         Payload payload;
         const bool chargeLease = m_parts && value.pixels && value.pixels->payloadSource;
-        payload.status = ResolveImagePixels(value.pixels, resident.pixels, m_cancellation, chargeLease ? budget : UINT64_MAX);
-        if (chargeLease && payload.status.Succeeded())
+        const ImportedImagePart* imported =
+            chargeLease ? dynamic_cast<const ImportedImagePart*>(value.pixels->payloadSource.get()) : nullptr;
+        payload.partWritten = imported && imported->Reuse(*m_parts, m_options, value, index, payload.record, m_cancellation);
+        if (!payload.partWritten)
+        {
+            payload.status =
+                ResolveImagePixels(value.pixels, resident.pixels, m_cancellation, chargeLease ? budget : UINT64_MAX);
+        }
+        if (chargeLease && resident.pixels && payload.status.Succeeded())
         {
             const ImagePixels& pixels = *resident.pixels;
             uint64_t           lease =
@@ -96,11 +222,11 @@ public:
                 budget -= lease;
             }
         }
-        if (payload.status.Succeeded() && !ValidateImagePixels(resident.pixels))
+        if (!payload.partWritten && payload.status.Succeeded() && !ValidateImagePixels(resident.pixels))
         {
             payload.status = {StatusCode::InvalidData, "Cannot write invalid image payload"};
         }
-        if (payload.status.Succeeded())
+        if (!payload.partWritten && payload.status.Succeeded())
         {
             payload = Serialize(ResourceType::Image, index, resident, ResourceVersion(ResourceType::Image, resident), budget);
         }
@@ -120,7 +246,7 @@ public:
 
     void EncodeImagePart(Payload& payload, uint64_t budget, uint64_t encoderBudget) const
     {
-        if (payload.status.Succeeded() && m_parts && m_parts->ReuseImage(payload.record))
+        if (payload.partWritten || (payload.status.Succeeded() && m_parts && m_parts->ReuseImage(payload.record)))
         {
             payload.partWritten = true;
             m_parts->CountImage(true);
@@ -378,6 +504,69 @@ Status TransferPackage(FILE* file, void* user)
     return status;
 }
 } // namespace
+detail::ImportImageWriter::ImportImageWriter(const std::filesystem::path& manifest,
+                                             const SceneWriteOptions&     options,
+                                             const Cancellation*          cancellation) :
+    m_options(options),
+    m_pin(std::make_shared<CacheFileLock>()),
+    m_cancellation(cancellation),
+    m_parts(manifest.has_parent_path() ? manifest.parent_path() : ".", options.durable, cancellation)
+{
+    // The final manifest writer owns public resource counts. Worker-local encoders
+    // have no manifest or complete resource count yet.
+    m_options.resourceProgress = nullptr;
+}
+
+detail::ImportImageWriter::~ImportImageWriter()
+{
+    if (m_options.partStats)
+    {
+        *m_options.partStats = m_parts.ImageStats();
+    }
+}
+
+std::unique_ptr<detail::ImportImageWriter> detail::ImportImageWriter::Open(const SceneImportImageCache& target,
+                                                                           size_t                       imageCount,
+                                                                           const Cancellation*          cancellation)
+{
+    std::filesystem::path              manifest;
+    std::unique_ptr<ImportImageWriter> writer;
+    if (imageCount && target.options.directoryLayout && !HasProcessingOperations(target.options.metadata.processing)
+        && ValidateCompressionSettings(target.options.compression).Succeeded()
+        && MakePath(target.manifest, manifest).Succeeded())
+    {
+        writer.reset(new ImportImageWriter(manifest, target.options, cancellation));
+        writer->m_parts.SetImageCount(imageCount);
+        if (!writer->m_parts.Begin(manifest, writer->m_options).Succeeded()
+            || !writer->m_pin->Acquire(writer->m_parts.Root() / ".zen-reader.lock", false, true, true, cancellation)
+                    .Succeeded())
+        {
+            writer.reset();
+        }
+    }
+    return writer;
+}
+
+bool detail::ImportImageWriter::Store(uint32_t index, const std::string& name, const std::shared_ptr<ImagePixels>& pixels)
+{
+    SceneEncoder          encoder(nullptr, 0, m_options, m_cancellation, &m_parts);
+    const uint32_t        slots  = std::max(1u, m_options.maxImageWorkers);
+    const uint64_t        budget = m_options.limits.maxAllocationBytes / slots;
+    const ImageAsset      image{name, pixels};
+    SceneEncoder::Payload payload = encoder.SerializeImage(index, image, budget);
+    encoder.EncodeImagePart(payload, budget, m_options.maxEncoderBytes / slots);
+    if (payload.partWritten)
+    {
+        pixels->payloadSource = std::make_shared<ImportedImagePart>(m_parts, m_pin, payload.record, image, m_options);
+        std::vector<uint8_t>().swap(pixels->bytes);
+        for (std::vector<uint8_t>& mip : pixels->mips)
+        {
+            std::vector<uint8_t>().swap(mip);
+        }
+    }
+    return payload.partWritten;
+}
+
 Status MigrateSceneDirectory(const std::string&             destination,
                              std::shared_ptr<const Package> source,
                              const SceneWriteOptions&       options,

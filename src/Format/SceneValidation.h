@@ -3,8 +3,29 @@
 
 namespace zenasset::detail
 {
-// Internal sources that own immutable bytes may reuse a completed pixel check.
-// File-backed and client-supplied sources are resolved on each validation.
+struct DeferredImageLayout
+{
+    explicit DeferredImageLayout(const ImagePixels& image) :
+        width(image.width), height(image.height), format(image.format), layers(image.arrayLayers), levels(image.mips.size())
+    {}
+    bool Matches(const ImagePixels& image) const
+    {
+        bool valid = image.width == width && image.height == height && image.format == format && image.arrayLayers == layers
+                  && image.mips.size() == levels && image.bytes.empty();
+        for (const std::vector<uint8_t>& mip : image.mips)
+        {
+            valid &= mip.empty();
+        }
+        return valid;
+    }
+    uint32_t    width, height;
+    PixelFormat format;
+    uint32_t    layers;
+    size_t      levels;
+};
+
+// Internal sources may reuse a completed pixel check after matching the descriptor
+// and proving the payload still matches (immutable bytes or a verified native part).
 class ValidatedImagePayloadSource : public ImagePayloadSource
 {
 public:

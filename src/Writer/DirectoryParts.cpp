@@ -3,11 +3,30 @@
 
 namespace zenasset::detail
 {
-namespace
+// Part paths are rooted in the canonical model directory. A staged descriptor
+// must enforce the same containment rule as the published package reader.
+FileOpenResult OpenStoredPart(const std::filesystem::path& path)
 {
+    FileOpenResult              result;
+    std::error_code             error;
+    const std::filesystem::path resolved = std::filesystem::canonical(path, error);
+    if (error == std::errc::no_such_file_or_directory)
+    {
+        result.status = {StatusCode::SourceUnavailable, "Scene part does not exist"};
+    }
+    else if (error || resolved != path)
+    {
+        result.status = {StatusCode::IOError, "Cannot open missing or redirected scene part"};
+    }
+    else
+    {
+        result = OpenFile(resolved);
+    }
+    return result;
+}
 Status CheckStoredFile(const std::filesystem::path& path, uint64_t size, uint64_t digest, const Cancellation* cancellation)
 {
-    FileOpenResult opened = OpenFile(path);
+    FileOpenResult opened = OpenStoredPart(path);
     if (opened.file != nullptr)
     {
         uint64_t actual = 0;
@@ -23,6 +42,8 @@ Status CheckStoredFile(const std::filesystem::path& path, uint64_t size, uint64_
     }
     return opened.status;
 }
+namespace
+{
 Status ClosePart(FILE*& file, bool durable)
 {
     Status    status = FlushFile(file, durable);
@@ -118,6 +139,10 @@ Status DirectoryParts::Begin(const std::filesystem::path& manifest, const SceneW
         }
     }
     const std::filesystem::path root = std::filesystem::canonical(m_root, folderError);
+    if (!folderError)
+    {
+        m_root = root;
+    }
     for (const char* folder : {"geometry", "textures"})
     {
         if (!status.Succeeded())
@@ -284,6 +309,10 @@ uint64_t DirectoryParts::GeometryDigest() const
 {
     return !m_geometry && m_temporary.empty() && m_position == m_oldSize ? m_oldDigest : kernels::FinishHash(m_hash);
 }
+ScenePartWriteStats DirectoryParts::ImageStats() const
+{
+    return {m_encoded.load(), m_reused.load(), m_written.load(), false};
+}
 Status DirectoryParts::Finish()
 {
     const bool reused = !m_oldGeometry.empty() && !m_geometry && m_position == m_oldSize;
@@ -312,7 +341,9 @@ Status DirectoryParts::Finish()
     }
     if (m_stats && status.Succeeded())
     {
-        *m_stats = {m_encoded.load(), m_reused.load(), m_written.load() + (reused ? 0 : m_position), reused};
+        *m_stats                   = ImageStats();
+        m_stats->partBytesWritten += reused ? 0 : m_position;
+        m_stats->geometryReused    = reused;
     }
     return status;
 }

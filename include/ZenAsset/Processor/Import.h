@@ -94,6 +94,12 @@ struct SceneImportRequest
     std::shared_ptr<SceneImportControl> control;
 };
 class Package;
+struct SceneWriteOptions;
+struct SceneImportImageCache
+{
+    std::string              manifest;
+    const SceneWriteOptions& options;
+};
 struct SceneImportContext
 {
     // Zero selects the available CPU count. Workers are private to one import.
@@ -128,6 +134,8 @@ struct SceneImportContext
     // digest of the exact encoded source bytes before using an image record.
     std::shared_ptr<const Package> previousReference;
     bool                           captureInputHashes{false};
+    // Optional directory target for reference glTF imports. Valid through ImportScene.
+    const SceneImportImageCache* imageCache{nullptr};
 };
 struct SceneImportReport
 {

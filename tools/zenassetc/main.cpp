@@ -768,13 +768,26 @@ Status Cook(const Arguments& arguments)
     request.path               = arguments.input;
     request.settings           = arguments.settings;
     request.control            = std::make_shared<SceneImportControl>(SceneImportCallbacks{nullptr, &Interrupted, nullptr});
+    ScenePartWriteStats importStats;
+    SceneWriteOptions   options;
+    if (arguments.context.workerCount != 0)
+    {
+        options.maxImageWorkers = arguments.context.workerCount;
+    }
+    options.limits          = arguments.limits;
+    options.compression     = arguments.compression;
+    options.maxEncoderBytes = arguments.maxEncoderBytes;
+    options.durable         = true;
+    options.directoryLayout = arguments.directoryLayout;
+    options.partStats       = &importStats;
+    SceneImportImageCache target{output, options};
     SceneImportContext context = arguments.context;
     if (arguments.directoryLayout)
     {
         const SceneFormatDescriptor* format = FindSceneImportFormat(request.path);
         if (format != nullptr)
         {
-            BuildMetadata metadata;
+            BuildMetadata& metadata   = options.metadata;
             metadata.sourceFormat     = format->id;
             metadata.importerVersion  = format->importerVersion;
             metadata.profile          = arguments.profile;
@@ -785,6 +798,9 @@ Status Cook(const Arguments& arguments)
             context.captureInputHashes = true;
             if (status.Succeeded() && !HasProcessingOperations(arguments.processing))
             {
+                target.manifest                 = output;
+                context.imageCache              = &target;
+                context.retainEncodedGltfImages = true;
                 const PackageResult previous = OpenPackage(output, arguments.limits.package, request.control.get());
                 if (previous.status.Succeeded() && !previous.package->Parts().empty())
                 {
@@ -813,21 +829,16 @@ Status Cook(const Arguments& arguments)
     SceneCookResult cooked;
     if (status.Succeeded())
     {
-        SceneCookOptions options;
-        options.settings = arguments.processing;
-        options.limits   = arguments.limits;
-        cooked           = CookScene(imported.asset, options, request.control.get());
+        SceneCookOptions cookOptions;
+        cookOptions.settings = arguments.processing;
+        cookOptions.limits   = arguments.limits;
+        cooked               = CookScene(imported.asset, cookOptions, request.control.get());
         status           = cooked.status;
         PrintDiagnostics(cooked.diagnostics);
         imported.asset.reset();
     }
     if (status.Succeeded())
     {
-        SceneWriteOptions options;
-        if (arguments.context.workerCount != 0)
-        {
-            options.maxImageWorkers = arguments.context.workerCount;
-        }
         options.metadata.sourceFormat     = imported.format;
         options.metadata.importerVersion  = imported.importerVersion;
         options.metadata.buildFingerprint = LibraryBuildFingerprint();
@@ -837,11 +848,6 @@ Status Cook(const Arguments& arguments)
         options.metadata.diagnostics.insert(options.metadata.diagnostics.end(), cooked.diagnostics.begin(),
                                             cooked.diagnostics.end());
         options.metadata.processing = arguments.processing;
-        options.limits              = arguments.limits;
-        options.compression         = arguments.compression;
-        options.maxEncoderBytes     = arguments.maxEncoderBytes;
-        options.durable             = true;
-        options.directoryLayout     = arguments.directoryLayout;
         options.partStats           = &stats;
         if (options.directoryLayout)
         {
@@ -850,6 +856,13 @@ Status Cook(const Arguments& arguments)
         if (status.Succeeded())
         {
             status = WriteScene(output, *cooked.scene, options, request.control.get());
+            if (status.Succeeded())
+            {
+                // Final assembly reuses parts already produced by this same import.
+                stats.imagesEncoded    += importStats.imagesEncoded;
+                stats.imagesReused     -= std::min(stats.imagesReused, importStats.imagesEncoded);
+                stats.partBytesWritten += importStats.partBytesWritten;
+            }
         }
     }
     if (status.Succeeded())

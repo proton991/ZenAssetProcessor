@@ -298,25 +298,8 @@ ResourceData Package::Read(uint64_t            id,
         }
         if (result.status.Succeeded())
         {
-            result.bytes.resize(static_cast<size_t>(record->decodedBytes));
-            if (record->codec == TransportCodec::Zstandard)
-            {
-                result.status = detail::ReadZstandardResource(source.file, *record, result.bytes,
-                                                              std::min(maxScratchBytes, m_state->maxCodecBytes),
-                                                              result.scratchBytes, cancellation, progress);
-            }
-            else
-            {
-                result.status =
-                    detail::ReadFileBytes(source.file, result.bytes.data(), result.bytes.size(), cancellation, progress);
-                ZENASSET_MEASURE_BEGIN(checksum, Checksum);
-                if (result.status.Succeeded()
-                    && detail::HashBytes(result.bytes.data(), result.bytes.size()) != record->checksum)
-                {
-                    result.status = {StatusCode::InvalidData, "Package resource checksum does not match"};
-                }
-                ZENASSET_MEASURE_END(checksum);
-            }
+            result = detail::ReadResourceData(source.file, *record, std::min(maxScratchBytes, m_state->maxCodecBytes),
+                                              cancellation, progress);
             if (result.status.Succeeded())
             {
                 source.nextOffset = record->offset + record->storedBytes;
