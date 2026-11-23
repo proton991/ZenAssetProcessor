@@ -3,6 +3,14 @@
 
 namespace zenasset::detail
 {
+// Internal sources that own immutable bytes may reuse a completed pixel check.
+// File-backed and client-supplied sources are resolved on each validation.
+class ValidatedImagePayloadSource : public ImagePayloadSource
+{
+public:
+    virtual bool HasValidatedPixels(const ImagePixels& descriptor) const = 0;
+};
+
 // The package reader and writer validate pixel payloads while each image is
 // resident. This checks the remaining graph, including image/texture references.
 bool ValidateSceneGraph(const Scene& scene, uint64_t maxRuntimeGeometryBytes, std::string* failure);

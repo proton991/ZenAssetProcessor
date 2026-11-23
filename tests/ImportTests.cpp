@@ -1,4 +1,5 @@
 #include "ZenAsset/Processor/Import.h"
+#include "ZenAsset/Format/Validation.h"
 #include "ZenAsset/Processor/Cook.h"
 #include "ZenAsset/Processor/Write.h"
 #include "ZenAsset/Reader/Scene.h"
@@ -174,6 +175,12 @@ bool CheckEncodedImages(const std::string& path)
                 const zenasset::Status                       decoded = zenasset::ResolveImagePixels(descriptor, lease);
                 valid &= Check(decoded.Succeeded() && lease && lease->bytes == expected.bytes && lease->mips == expected.mips,
                                "Encoded lease must preserve every pixel and mip");
+                std::shared_ptr<zenasset::ImagePixels> changed = std::make_shared<zenasset::ImagePixels>(*descriptor);
+                ++changed->width;
+                valid &= Check(!zenasset::ValidateImagePixels(changed), "A retained image must reject changed dimensions");
+                changed->width = descriptor->width;
+                changed->bytes.push_back(0);
+                valid &= Check(!zenasset::ValidateImagePixels(changed), "A retained image must reject conflicting storage");
                 std::weak_ptr<const zenasset::ImagePixels> released = lease;
                 lease.reset();
                 valid &= Check(released.expired(), "Releasing a lease must free decoded storage");

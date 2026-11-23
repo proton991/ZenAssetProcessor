@@ -25,7 +25,7 @@ Cache/SceneAssets/
 
 ## Using the directory layout
 
-The flat layout remains the default. In the editor, select **Store cache in a model directory** in the source processing settings. Native callers set `SceneImportRequest::directoryCache`. Editor Run uses the loaded scene in process. A standalone ZenApp setup can use the published manifest as its `packagePath`.
+The editor stores processed source models in named directories under `Cache/SceneAssets` by default. Clear **Store cache in a model directory** in the source processing settings to select a flat file. The standalone CLI and native source API retain their flat defaults. CLI callers select `--layout directory` and native callers set `SceneImportRequest::directoryCache`. Editor Run uses the loaded scene in process. A standalone ZenApp setup can use the published manifest as its `packagePath`.
 
 ```powershell
 $cook = zenassetc cook model.gltf --output Cache/SceneAssets --layout directory --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt --workers 8 | ConvertFrom-Json
@@ -103,6 +103,20 @@ All 479 non-metadata Sponza records had identical schemas, codecs, stored and de
 | Directory, 1 worker | 17 ms | 6.1 | 6,956 | 8,808 | 6 |
 | Directory, 8 workers | 18 ms | 6.6 | 6,956 | 8,808 | 6 |
 
-The small-fixture rows use seven alternating launches per configuration and a one-millisecond process wait to resolve startup overhead. This fixture exposes the cost of additional files and publication. Flat remains the default, and directory mode is available for workloads that benefit from independent reads and incremental writes.
+The small-fixture rows use seven alternating launches per configuration and a one-millisecond process wait to resolve startup overhead. This fixture exposes the cost of additional files and publication. The CLI keeps the flat default. The editor uses the named directory so source imports can reuse independent parts.
 
 All 46 processor CTest suites passed. The engine asset integration, editor input and ZenApp startup suites passed. One model-catalog test skipped because this Windows account lacks symbolic-link creation privileges. A Windows junction probe separately verified that the directory reader rejects redirected texture parts. Editor Run retained the loaded scene through play, pause, resize and quit in both inline and threaded RHI modes. The release CLI validated the historical flat New Sponza package, and the older CLI rejected the directory format marker. The installed reader-only consumer opened glTF, OBJ and animated/skinned FBX directory packages. Recovery coverage includes process exit before replacement, same-stamp input mutation, damaged or missing parts, concurrent publishers, relocation, flat migration, scene-wide limits, and a deferred lease held across replacement and eviction. Desktop UV, masked vertex-alpha and morph-alpha changes matched independent clean cooks.
+
+## Editor source-open verification
+
+The earlier fresh-cook numbers measure `zenassetc`. The editor also normalizes and validates source data, publishes its cache and reopens the package for runtime image leases. On New Sponza the previous runtime import decoded retained source textures again during import validation and reference cooking. The importer now validates freshly decoded pixels on the texture worker. Later validation checks the immutable source and descriptor. Package-backed images still perform their normal integrity checks.
+
+| Release source-open path | Median CPU-side elapsed time | Peak working set |
+| --- | ---: | ---: |
+| Previous editor defaults, empty flat cache | 69.10 s | 3.04 GiB |
+| New editor defaults, empty named directory | 11.35 s | 4.31 GiB |
+| Reopen the source with the published directory | 1.06 s | 1.05 GiB |
+
+The first two rows time three fresh processes calling the editor's CPU source loader, each with an empty application cache and warm OS files. Working set is the median of the sampled peaks. The final row is a single verified cache hit in a new process using the default engine cache root. Directory opens allow up to eight source decodes, eight writer slots and eight reader workers. The reader and writer keep their existing byte limits.
+
+The release ZenApp opened the editor-published manifest in 0.95 s of CPU scene load and reached ready in 8.14 s, windowed at 1280 × 720 with the compute backend and async compute disabled. All 479 non-metadata resource records matched the previous flat package. The measurements JSON includes the individual runs, manifest, executable and setup hashes, recorded extents and launch arguments.

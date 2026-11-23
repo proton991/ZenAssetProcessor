@@ -1745,5 +1745,313 @@
       "peakWorkingSetBytes": 1334034432,
       "sha256": "ee0ddf1b1ed030a293d2104fdf56b50fe5907db9714510e178e29652f5ef8277"
     }
+  },
+  "editorSourceOpen": {
+    "scope": "CPU time inside LoadSourceScene using editor source-open defaults and the hardware-sized processing pool. Distinct empty application caches, warm OS files, graphics excluded. Each row is a fresh process. Stage IDs are SceneImportStage, sampled every 10 ms. Working set sampling was enabled after the first baseline run.",
+    "baselineEngine": "18eb1c6d7dea3328e7cb9efb6acba12ce1038987",
+    "baselineProcessor": "42f985931854a1f3a9dcf8570da9f3c859c47adc",
+    "source": "E:/Dev/main_sponza/NewSponza_Main_glTF_003.gltf",
+    "baselineProbeSha256": "24a47fc78847ccba2ccb5f58fc5c635f4cc9e45465348c567122b13339e12e1e",
+    "updatedProbeSha256": "b407810df07f2da35216c4e5f06d91cfc4db2ff52f00a4b5e8c932249480f081",
+    "originalFlat": [
+      {
+        "sourceLoadSeconds": 69.384,
+        "cacheHit": false,
+        "observedStageStartSeconds": [
+          {
+            "stage": 1,
+            "seconds": 0.02
+          },
+          {
+            "stage": 2,
+            "seconds": 0.083
+          },
+          {
+            "stage": 3,
+            "seconds": 8.885
+          },
+          {
+            "stage": 6,
+            "seconds": 8.994
+          },
+          {
+            "stage": 10,
+            "seconds": 24.957
+          },
+          {
+            "stage": 11,
+            "seconds": 40.98
+          },
+          {
+            "stage": 12,
+            "seconds": 64.394
+          },
+          {
+            "stage": 6,
+            "seconds": 69.337
+          }
+        ]
+      },
+      {
+        "sourceLoadSeconds": 69.103,
+        "cacheHit": false,
+        "peakWorkingSetBytes": 3269689344,
+        "observedStageStartSeconds": [
+          {
+            "stage": 1,
+            "seconds": 0.02
+          },
+          {
+            "stage": 2,
+            "seconds": 0.082
+          },
+          {
+            "stage": 3,
+            "seconds": 8.946
+          },
+          {
+            "stage": 6,
+            "seconds": 9.055
+          },
+          {
+            "stage": 10,
+            "seconds": 25.066
+          },
+          {
+            "stage": 11,
+            "seconds": 41.113
+          },
+          {
+            "stage": 12,
+            "seconds": 64.206
+          },
+          {
+            "stage": 6,
+            "seconds": 69.05
+          }
+        ]
+      },
+      {
+        "sourceLoadSeconds": 69.082,
+        "cacheHit": false,
+        "peakWorkingSetBytes": 3268485120,
+        "observedStageStartSeconds": [
+          {
+            "stage": 1,
+            "seconds": 0.017
+          },
+          {
+            "stage": 2,
+            "seconds": 0.079
+          },
+          {
+            "stage": 3,
+            "seconds": 8.941
+          },
+          {
+            "stage": 6,
+            "seconds": 9.05
+          },
+          {
+            "stage": 10,
+            "seconds": 25.06
+          },
+          {
+            "stage": 11,
+            "seconds": 41.098
+          },
+          {
+            "stage": 12,
+            "seconds": 64.17
+          },
+          {
+            "stage": 6,
+            "seconds": 69.032
+          }
+        ]
+      }
+    ],
+    "editorDirectory": [
+      {
+        "sourceLoadSeconds": 11.616,
+        "cacheHit": false,
+        "peakWorkingSetBytes": 4630605824,
+        "observedStageStartSeconds": [
+          {
+            "stage": 1,
+            "seconds": 0.025
+          },
+          {
+            "stage": 2,
+            "seconds": 1.144
+          },
+          {
+            "stage": 3,
+            "seconds": 3.909
+          },
+          {
+            "stage": 6,
+            "seconds": 4.033
+          },
+          {
+            "stage": 10,
+            "seconds": 4.111
+          },
+          {
+            "stage": 11,
+            "seconds": 4.22
+          },
+          {
+            "stage": 12,
+            "seconds": 10.658
+          },
+          {
+            "stage": 13,
+            "seconds": 11.544
+          },
+          {
+            "stage": 6,
+            "seconds": 11.56
+          }
+        ]
+      },
+      {
+        "sourceLoadSeconds": 11.28,
+        "cacheHit": false,
+        "peakWorkingSetBytes": 4631601152,
+        "observedStageStartSeconds": [
+          {
+            "stage": 1,
+            "seconds": 0.022
+          },
+          {
+            "stage": 2,
+            "seconds": 1.107
+          },
+          {
+            "stage": 3,
+            "seconds": 3.806
+          },
+          {
+            "stage": 6,
+            "seconds": 3.93
+          },
+          {
+            "stage": 10,
+            "seconds": 4.039
+          },
+          {
+            "stage": 11,
+            "seconds": 4.163
+          },
+          {
+            "stage": 12,
+            "seconds": 10.325
+          },
+          {
+            "stage": 13,
+            "seconds": 11.211
+          },
+          {
+            "stage": 6,
+            "seconds": 11.226
+          }
+        ]
+      },
+      {
+        "sourceLoadSeconds": 11.351,
+        "cacheHit": false,
+        "peakWorkingSetBytes": 4631027712,
+        "observedStageStartSeconds": [
+          {
+            "stage": 1,
+            "seconds": 0.015
+          },
+          {
+            "stage": 2,
+            "seconds": 1.101
+          },
+          {
+            "stage": 3,
+            "seconds": 3.831
+          },
+          {
+            "stage": 6,
+            "seconds": 3.94
+          },
+          {
+            "stage": 10,
+            "seconds": 4.017
+          },
+          {
+            "stage": 11,
+            "seconds": 4.126
+          },
+          {
+            "stage": 12,
+            "seconds": 10.396
+          },
+          {
+            "stage": 13,
+            "seconds": 11.281
+          },
+          {
+            "stage": 6,
+            "seconds": 11.297
+          }
+        ]
+      }
+    ],
+    "sourceReopen": {
+      "sourceLoadSeconds": 1.058,
+      "cacheHit": true,
+      "peakWorkingSetBytes": 1124843520,
+      "observedStageStartSeconds": [
+        {
+          "stage": 1,
+          "seconds": 0.015
+        },
+        {
+          "stage": 12,
+          "seconds": 0.108
+        },
+        {
+          "stage": 13,
+          "seconds": 0.991
+        },
+        {
+          "stage": 6,
+          "seconds": 1.007
+        }
+      ]
+    },
+    "publishedManifest": "E:/Dev/ZenEngine/Cache/SceneAssets/NewSponza_Main_glTF_003/reference-970375866b3ebb22.zenasset",
+    "identicalNonMetadataRecords": 479,
+    "sourceProvenance": "All 74 input hashes match sourceSha256.",
+    "zenApp": {
+      "args": [
+        "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe",
+        "--setup=E:/Dev/ZenEngine/build/source-cache-followup/actual-cache.zenrender",
+        "--frames=1",
+        "--windowed",
+        "--width=1280",
+        "--height=720",
+        "--async-compute=0",
+        "--backend=compute",
+        "--no-ui",
+        "--read-workers=8"
+      ],
+      "sha256": "2b1133eb6048ced20df03ae9173d6f9d6190f1812cf77b14cd576cd362f58489",
+      "setupSha256": "07110dd660fa6a0f7496aa1dd978eb0c39a79301c09fe33c5c199a81d038a18b",
+      "environmentSha256": "2ad269b9e81e8cb9489dba6a2c61f2063b46b450146e2344e6d6e1da2ce60626",
+      "manifestSha256": "b2a71a0a393de9fb247c82ccddb5caa4cef17d0a4125b1be5bf17998cf7821d4",
+      "cpuSceneSeconds": 0.953,
+      "readySeconds": 8.139,
+      "peakWorkingSetBytes": 1333792768,
+      "configuration": [
+        "ZenApp presentation: fullscreen=false, framebuffer=1280x720",
+        "ZenApp render: 1280x720, async-compute=disabled by configuration, RHI=threaded, ray-provider=compute, ray-query=available, diagnostics=false"
+      ]
+    }
   }
 }

@@ -1,5 +1,6 @@
 #include "ZenFoundation/Templates/HeapVector.h"
 #include "Importers/ImageDecoder.h"
+#include "Format/SceneValidation.h"
 #include <webp/decode.h>
 #include <basisu_transcoder.h>
 #include <stb_image.h>
@@ -12,12 +13,29 @@ namespace zenasset
 {
 namespace
 {
-class EncodedImageSource final : public ImagePayloadSource
+class EncodedImageSource final : public detail::ValidatedImagePayloadSource
 {
 public:
-    EncodedImageSource(const uint8_t* data, size_t size, uint64_t decodedBytes, PixelFormat format) :
-        m_encoded(data, size), m_decodeBudget(decodedBytes * 2), m_format(format)
+    EncodedImageSource(const uint8_t* data, size_t size, uint64_t decodedBytes, const ImagePixels& image, bool validated) :
+        m_encoded(data, size),
+        m_decodeBudget(decodedBytes * 2),
+        m_format(image.format),
+        m_width(image.width),
+        m_height(image.height),
+        m_levels(image.mips.size()),
+        m_validated(validated)
     {}
+
+    bool HasValidatedPixels(const ImagePixels& image) const override
+    {
+        bool valid = m_validated && image.width == m_width && image.height == m_height && image.format == m_format
+                  && image.arrayLayers == 1 && image.mips.size() == m_levels && image.bytes.empty();
+        for (const std::vector<uint8_t>& mip : image.mips)
+        {
+            valid &= mip.empty();
+        }
+        return valid;
+    }
 
     Status Read(std::shared_ptr<const ImagePixels>& pixels, const Cancellation* cancellation) const override
     {
@@ -62,6 +80,10 @@ private:
     zen::HeapVector<uint8_t> m_encoded;
     uint64_t                 m_decodeBudget;
     PixelFormat              m_format;
+    uint32_t                 m_width;
+    uint32_t                 m_height;
+    size_t                   m_levels;
+    bool                     m_validated;
 };
 
 bool ReservePixels(uint32_t width, uint32_t height, uint32_t copies, ImportErrors& errors)
@@ -217,8 +239,17 @@ std::vector<uint8_t> DecodeImagePixels(const uint8_t*                     data,
     }
     return pixels;
 }
-void RetainEncodedImage(ImagePixels& image, const uint8_t* data, size_t size, ImportErrors& errors)
+void RetainEncodedImage(const std::shared_ptr<ImagePixels>& pixels,
+                        const uint8_t*                      data,
+                        size_t                              size,
+                        bool                                decodedFromSource,
+                        ImportErrors&                       errors)
 {
+    ImagePixels& image = *pixels;
+    if (decodedFromSource && !ValidateImagePixels(pixels))
+    {
+        errors.Fail("Decoded image has invalid pixels");
+    }
     uint64_t decodedBytes = image.bytes.size();
     for (const std::vector<uint8_t>& mip : image.mips)
     {
@@ -237,7 +268,7 @@ void RetainEncodedImage(ImagePixels& image, const uint8_t* data, size_t size, Im
     }
     if (!errors.Failed() && errors.ReserveImageBytes(size))
     {
-        image.payloadSource = std::make_shared<EncodedImageSource>(data, size, decodedBytes, image.format);
+        image.payloadSource = std::make_shared<EncodedImageSource>(data, size, decodedBytes, image, decodedFromSource);
         std::vector<uint8_t>().swap(image.bytes);
         for (std::vector<uint8_t>& mip : image.mips)
         {

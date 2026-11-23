@@ -1949,7 +1949,7 @@ std::shared_ptr<const ImagePixels> GltfAssetReader::DecodeGltfImage(uint32_t    
             if (result && m_retainEncodedImages)
             {
                 std::shared_ptr<ImagePixels> retained = std::const_pointer_cast<ImagePixels>(result);
-                RetainEncodedImage(*retained, reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size(), decoding);
+                RetainEncodedImage(retained, reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size(), false, decoding);
             }
         }
         if (decoding.Failed())
@@ -1965,7 +1965,7 @@ std::shared_ptr<const ImagePixels> GltfAssetReader::DecodeGltfImage(uint32_t    
             const bool decoded = !image->bytes.empty() && image->width != 0 && image->height != 0;
             if (decoded && !decoding.Failed() && m_retainEncodedImages)
             {
-                RetainEncodedImage(*image, reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size(), decoding);
+                RetainEncodedImage(image, reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size(), true, decoding);
             }
             if (m_errors.Failed() || decoding.Failed() || !decoded)
             {

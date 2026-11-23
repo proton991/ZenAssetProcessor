@@ -14,5 +14,9 @@ std::vector<uint8_t> DecodeImagePixels(const uint8_t*                     data,
                                        std::vector<std::vector<uint8_t>>* mips = nullptr);
 // Replaces successfully decoded pixels with an immutable copy of their encoded
 // source. Keeps the descriptor/mip count and releases all decoded allocations.
-void RetainEncodedImage(ImagePixels& image, const uint8_t* data, size_t size, ImportErrors& errors);
+void RetainEncodedImage(const std::shared_ptr<ImagePixels>& pixels,
+                        const uint8_t*                      data,
+                        size_t                              size,
+                        bool                                decodedFromSource,
+                        ImportErrors&                       errors);
 } // namespace zenasset

@@ -750,9 +750,15 @@ bool ValidLightsAndCameras(const Scene& asset)
 
 bool ValidateImagePixels(const std::shared_ptr<const ImagePixels>& source)
 {
+    const detail::ValidatedImagePayloadSource* checked =
+        source ? dynamic_cast<const detail::ValidatedImagePayloadSource*>(source->payloadSource.get()) : nullptr;
     std::shared_ptr<const ImagePixels> resident;
-    bool                               valid = ResolveImagePixels(source, resident).Succeeded();
-    if (valid)
+    bool                               valid = checked && checked->HasValidatedPixels(*source);
+    if (!valid)
+    {
+        valid = ResolveImagePixels(source, resident).Succeeded();
+    }
+    if (resident)
     {
         const ImagePixels& pixels  = *resident;
         valid                     &= pixels.format == PixelFormat::RGBA8Unorm || pixels.format == PixelFormat::RGBA8Srgb
