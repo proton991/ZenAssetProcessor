@@ -1,0 +1,1749 @@
+{
+  "resourceComparison": {
+    "fresh": {
+      "resources": 480,
+      "identicalNonMetadataRecords": 479
+    },
+    "small": {
+      "resources": 31,
+      "identicalNonMetadataRecords": 30
+    }
+  },
+  "machine": {
+    "cpu": "AMD Ryzen 9 9950X3D 16-Core Processor",
+    "gpu": "NVIDIA GeForce RTX 5080, 621.35",
+    "os": "Windows-11-10.0.26300-SP0"
+  },
+  "processorRevision": "29d4e44fe880331b1f578dd32b48d6eb33056be0",
+  "recordedOn": "2026-11-23",
+  "build": "Windows MSVC Release",
+  "historicalBaseline": {
+    "revisions": {
+      "E:\\Dev\\ZenEngine": "30c423a3b06fe9ae207fadcd7c31fea8465d12d5",
+      "E:\\Dev\\ZenEngine\\ZenAssetProcessor": "51a0494fd4153a7af3b3b754d1eccdd4b844be41"
+    },
+    "zenassetcSha256": "af528ae40853e353bc2dab61542d24782392c736a7553a4d3e18ed9e13844db2",
+    "zenAppSha256": "4df5f3b237769591dffc5a09e30c381c8986787182f59e0e235b9f99d0461bce",
+    "cookSeconds": 11.09,
+    "cpuSceneSeconds": 4.88,
+    "readySeconds": 12.07
+  },
+  "reportedZenAppBuild": [
+    "ZenApp build: ZenEngine 6bc481ccbf04f1ca990dbd91a753101f52f6ec8d dirty",
+    "ZenApp build: ZenFoundation 489100361264c6f6cc4e3a3f508aae418f88b606 clean",
+    "ZenApp build: ZenRHI 7b8ccd14518838e9cccbb745f66c671398e11d9d clean",
+    "ZenApp build: ZenAssetProcessor c5968837ad7cfe6fb2788fcc7f9af12098f612df dirty",
+    "ZenApp build: ZenTest 0e4feb0bb1b6354fbffa295b87f3074242f8ed09 clean",
+    "ZenApp build: ZenSample 4bbb2df933c202a86412b1c46e7200a301635635 clean"
+  ],
+  "zenassetcSha256": "e0df4f923cddc32de51b966a4e3173c8815efa8e5f6ef37024a2e43f57106194",
+  "zenAppSha256": "27478f136a6fce6190d0bf5337e89cae631d8fe37fe964ae68f1971cdfaff267",
+  "processorFingerprint": "0171659abd6e9c8d58c461f84ceff873c87e2981ae288a544665ae36f04eaccf",
+  "sourceSha256": {
+    "E:\\Dev\\main_sponza\\NewSponza_Main_glTF_003.bin": "903d443b46b51c8397c25b65286d9f9e111121f12a3e0e303f19019982568d6b",
+    "E:\\Dev\\main_sponza\\NewSponza_Main_glTF_003.gltf": "e04c4c540c74bdddcbd3f590a85c14119bfd5839702246a23b3a737c0cce2400",
+    "E:\\Dev\\main_sponza\\textures\\arch_stone_wall_01_BaseColor.png": "61a34f79b8485262fc8253f9965d042a3f0a1437bddf97de854777981d19ac61",
+    "E:\\Dev\\main_sponza\\textures\\arch_stone_wall_01_Normal.png": "b29aed67732fe1817c70e8b74d60a47b6d5269e157c5ac1bb975a282bd2cd560",
+    "E:\\Dev\\main_sponza\\textures\\arch_stone_wall_01_Roughnessarch_stone_wall_01_Metalness.png": "c0c9565c93dd57dd917f6a4b9e6652c5e1673c288a0bc1753ddce8323b54fd1d",
+    "E:\\Dev\\main_sponza\\textures\\brickwall_01_BaseColor.png": "45b77509983b55fb20884cdd9535dfe7655b4bcd9ef6889486164bbc48078373",
+    "E:\\Dev\\main_sponza\\textures\\brickwall_01_Normal.png": "9d15c9c3c761d4e96323fc89990086c41a7b29154ae42d4afcc786891b3b89dc",
+    "E:\\Dev\\main_sponza\\textures\\brickwall_01_Roughnessbrickwall_01_Metalness.png": "c3e81274de0fd9d8c7350d74d09f28a63ab5ad7a323cbe9aa7df20612e9e07cb",
+    "E:\\Dev\\main_sponza\\textures\\brickwall_02_BaseColor.png": "151ed7a0aba6706be294d237724b8ba4b2ff985df7f7e6098afbe13b3a07d1d1",
+    "E:\\Dev\\main_sponza\\textures\\brickwall_02_Normal.png": "02a761f7e55d6295eb7a443185e5831e6d4b6d83d76404c2f08b2c6243660c81",
+    "E:\\Dev\\main_sponza\\textures\\brickwall_02_Roughnessbrickwall_02_Metalness.png": "0042fc6c6e39274ad536de97a26a4221844b6cf4a3371f208a72f8af7b4a307c",
+    "E:\\Dev\\main_sponza\\textures\\ceiling_plaster_01_BaseColor.png": "daf6e0cb4bf2a3bed93ec25c8c633c85946cf31fcf235b0a65fff305f624324a",
+    "E:\\Dev\\main_sponza\\textures\\ceiling_plaster_01_Normal.png": "78edc1059f6239d5ca756613dd0a2d0d458d33c30d5de11ec76b7942b2a29727",
+    "E:\\Dev\\main_sponza\\textures\\ceiling_plaster_01_Roughnessceiling_plaster_01_Metalness.png": "cac9b07016c6f40f679197fcf989eeebbaad34ee5b7bb8f479d35d1c5bfee665",
+    "E:\\Dev\\main_sponza\\textures\\ceiling_plaster_02_BaseColor.png": "1002691be7f95b374120860b5e17cf5cac37fd909b96d27fd701b0dbb69a0e03",
+    "E:\\Dev\\main_sponza\\textures\\ceiling_plaster_02_Roughnessceiling_plaster_01_Metalness.png": "64a10e86c72e078c1d37c6be823f06da5abbb7ae6dd08b1a2ed2a7ee9b6e9a4e",
+    "E:\\Dev\\main_sponza\\textures\\col_1stfloor_BaseColor.png": "27e2901a976c250529fd3cda673bd6060effa67a2f2e4b07a94cf6ca0b5a56f3",
+    "E:\\Dev\\main_sponza\\textures\\col_1stfloor_Normal.png": "5badcadb1d80411bfa29fd84b4479080139a0424b6ead762242f3e2ee19bc2df",
+    "E:\\Dev\\main_sponza\\textures\\col_1stfloor_Roughnesscol_1stfloor_Metalness.png": "02562f29c5066234f3a8c217ec1daad904c1b8cea0fd9a005e8b37f4c9638608",
+    "E:\\Dev\\main_sponza\\textures\\col_brickwall_01_BaseColor.png": "b153506c7fbd3fe8c79f1bf7560171a7e228d7d830e0cf8100c3e7c7902f2860",
+    "E:\\Dev\\main_sponza\\textures\\col_brickwall_01_Normal.png": "abfa77fd113ccadc19a308e247d682f668de17efd3b8c061aaa0ce659a9c3879",
+    "E:\\Dev\\main_sponza\\textures\\col_brickwall_01_Roughnesscol_brickwall_01_Metalness.png": "544bc2b8d42cfac282e23e00322a844a257a7334ede24d7ebb22223f5b525b3c",
+    "E:\\Dev\\main_sponza\\textures\\col_head_1stfloor_BaseColor.png": "f05f193a2adcc1ab8d62c2444301890605ac0ea67c3ab43893976f4f9f8e2c64",
+    "E:\\Dev\\main_sponza\\textures\\col_head_1stfloor_Normal.png": "5990dfae5608cfd5bc93e6b045dec8196e4d3eaeacb7abf0d63aa5929d1e8cb3",
+    "E:\\Dev\\main_sponza\\textures\\col_head_1stfloor_Roughnesscol_head_1stfloor_Metalness.png": "846654bda0801839cc0a60ad03c12a713fcab03c3adeabe898aa611edf4ca708",
+    "E:\\Dev\\main_sponza\\textures\\col_head_2ndfloor_02_BaseColor.png": "8db34c7a193cd5e7c0f2bd8421d80df3ef6f57a5ef94d296df24942623388cf1",
+    "E:\\Dev\\main_sponza\\textures\\col_head_2ndfloor_02_Normal.png": "d5b1835f18bdc02c7c1b0c63a0cc1b0f9a28d5c1750fd91b3bb41523a507c1d4",
+    "E:\\Dev\\main_sponza\\textures\\col_head_2ndfloor_02_Roughnesscol_head_2ndfloor_02_Metalness.png": "12e4a23aba5cc6a1b3832e4382d9a0c0be3989917398de221c1af9dbca3053a4",
+    "E:\\Dev\\main_sponza\\textures\\col_head_2ndfloor_03_BaseColor.png": "51912aadb380a04d2c2428ac8953c9bc1f7c8178dd4e486adde59e6f40446bb7",
+    "E:\\Dev\\main_sponza\\textures\\col_head_2ndfloor_03_Normal.png": "5b2e76e76d711fd8232355fe120ec1a670a2f7998f55552ed8e3ea33edf58faf",
+    "E:\\Dev\\main_sponza\\textures\\col_head_2ndfloor_03_Roughnesscol_head_2ndfloor_03_Metalness.png": "4c1b0a6a93b42b2f39c07695dc811e8165dc006cee7e6efd34e81332e9f76f46",
+    "E:\\Dev\\main_sponza\\textures\\dirt_decal_01_dirt_decal_01_mask_gltf_alpha_dirt_decal_Opacity.png": "37f9653b25e5cf3300ae4c2a05850a89ddca64a5be66a1ab91f53be634581f09",
+    "E:\\Dev\\main_sponza\\textures\\door_stoneframe_01_BaseColor.png": "71304dc830cd3c36a2710a1ee612ed9c561a1268086578723852b7ebd4644af7",
+    "E:\\Dev\\main_sponza\\textures\\door_stoneframe_01_Normal.png": "577d59df35802e8165fc99747ee5b1ef6dce9ee598dc5d14e58407de0fb9d118",
+    "E:\\Dev\\main_sponza\\textures\\door_stoneframe_01_Roughnessdoor_stoneframe_01_Metalness.png": "dd46e911c5a840862fdb5f8189791853d5febb74e4ea9dacb81009b83619ea68",
+    "E:\\Dev\\main_sponza\\textures\\door_stoneframe_02_BaseColor.png": "b94bd19b543f54873d582cc7774b8eecd3affb323c7566927ad284c587b16576",
+    "E:\\Dev\\main_sponza\\textures\\door_stoneframe_02_Normal.png": "d568eafb6dc9218f2301543b95202b1b9b9e59c2f47d905742c2faa87ea0c446",
+    "E:\\Dev\\main_sponza\\textures\\door_stoneframe_02_Roughnessdoor_stoneframe_02_Metalness.png": "9d9aa73edf18d1af63161353541a84356653f909e3bcb6121476cfc0812cd7c0",
+    "E:\\Dev\\main_sponza\\textures\\floor_tiles_01_BaseColor.png": "803484416f5db14596e2e9d8ae5405cf983ee0e4a5c13203c2bf2b8febddaaa4",
+    "E:\\Dev\\main_sponza\\textures\\floor_tiles_01_Normal.png": "239ee8ba53340f0ef43c8349e2335a3deb0675c25bfc1ede8e4ed9ccab532710",
+    "E:\\Dev\\main_sponza\\textures\\floor_tiles_01_Roughnessfloor_tiles_01_Metalness.png": "44f30dfa6c8fa9b098911455b94e3baed9ce58c8f7997869e7c1b399af7f97e9",
+    "E:\\Dev\\main_sponza\\textures\\lionhead_01_BaseColor.png": "b2297d1e079dfdf449aaebccf144b6077966093474c9be3b62512d72cd30f86b",
+    "E:\\Dev\\main_sponza\\textures\\lionhead_01_Normal.png": "d525ccd8d3137265180be5dce8fb201dce45441e4b4690ea4617e04f712bbdc5",
+    "E:\\Dev\\main_sponza\\textures\\lionhead_01_Roughnesslionhead_01_Metalness.png": "85b00baa60c96672f46faeb3c69ffe4d25c84e00cb4f50041072e78ea3e9a8f6",
+    "E:\\Dev\\main_sponza\\textures\\metal_door_01_BaseColor.png": "b87e0c482d153b7adb7b113b612cb7695c0f9f42a94bfaec7d533726094ba331",
+    "E:\\Dev\\main_sponza\\textures\\metal_door_01_Normal.png": "05a9ba86641e1e8abb3b0ac8f8eeaf6e332734d0d7caa8ca2f0bd953aa8b91f9",
+    "E:\\Dev\\main_sponza\\textures\\metal_door_01_Roughnessmetal_door_01_Metalness.png": "b5123a6db0ebc505adfd01372cf4ba31fb05f14e7f445232a1355e5e08868962",
+    "E:\\Dev\\main_sponza\\textures\\ornament_01_BaseColor.png": "2d38691430aa98b24d20b740d1038591d7c0afa2e7662a752f5e5235b95cb522",
+    "E:\\Dev\\main_sponza\\textures\\ornament_01_Normal.png": "1f50c1f03dce342b8c90f8aa71b0259891376558d21ffa29648bb19a3082fad5",
+    "E:\\Dev\\main_sponza\\textures\\ornament_01_Roughnessornament_01_Metalness.png": "831636eab731cabd5c08b24630e331d091a520401007bd58f3b05aed0467134a",
+    "E:\\Dev\\main_sponza\\textures\\roof_tiles_01_BaseColor.png": "3310a7cd14ed82f56bc00cf88d36289a73d743e4594a0e72d4e21f68c2110cf8",
+    "E:\\Dev\\main_sponza\\textures\\roof_tiles_01_Normal.png": "b53ced4773abee823cc79a9b69b36ee30536a0d75dbd356eab31f0cc46bda2d8",
+    "E:\\Dev\\main_sponza\\textures\\roof_tiles_01_Roughnessroof_tiles_01_Metalness.png": "9903f3399804b1dc43d95d51fce58f2fcd3e13aa463335b7445d649beb6c3bba",
+    "E:\\Dev\\main_sponza\\textures\\stone_01_tile_BaseColor.png": "1cbccc0e08994ab43ae9e32b6c2be1eff3d790748e2d8fa35e36d2e56ae8b9f4",
+    "E:\\Dev\\main_sponza\\textures\\stone_01_tile_Normal.png": "cfe8e849c51fd863ed2239c8fc2f7c0f71b5c19cd06ac5536aa547ca1246f253",
+    "E:\\Dev\\main_sponza\\textures\\stone_01_tile_Roughnessstone_01_tile_Metalness.png": "17f2a4afac1e759ba1cd3b88f3a076b4d89a9808b4468707e92f2e68981fa6c5",
+    "E:\\Dev\\main_sponza\\textures\\stone_trims_01_BaseColor.png": "bc276c7c84e46dcda5001dfe5c09d10b98ca6dcdbab3f0f65227f650f7af0ca8",
+    "E:\\Dev\\main_sponza\\textures\\stone_trims_01_Normal.png": "07bccadd4e7f5510ddbdfef02ed4bd97ce333b6fd920cb052c27a7e1638db73c",
+    "E:\\Dev\\main_sponza\\textures\\stone_trims_01_Roughnessstone_trims_01_Metalness.png": "3789e7710017bc24b2ab89327097eb3d551bb03b72f496d7b37cecf6bcbd81a2",
+    "E:\\Dev\\main_sponza\\textures\\stone_trims_02_BaseColor.png": "d2275ed38589952af8972da830a3f66eaf6214677d2e4d3ff7bd9b0c580bd864",
+    "E:\\Dev\\main_sponza\\textures\\stone_trims_02_Normal.png": "34ae39f63c0515b966cc74ef3f0fe31c2b0c5d1b3363f1139ee03641fe40ab3b",
+    "E:\\Dev\\main_sponza\\textures\\stone_trims_02_Roughnessstone_trims_02_Metalness.png": "6ac5252dd527729e30a9ded7b3658f3cc1a37b87ab9a9021cad2c5261166ee77",
+    "E:\\Dev\\main_sponza\\textures\\stones_2ndfloor_01_BaseColor.png": "a07df76e5b18af060e48ecafbcf9c17e691da96f2d1a627bdc7a8b3d11d14fc0",
+    "E:\\Dev\\main_sponza\\textures\\stones_2ndfloor_01_Normal.png": "cdffc711a0df454908e2773386d92b2fa6651958665e1058509710dcdfbda66b",
+    "E:\\Dev\\main_sponza\\textures\\stones_2ndfloor_01_Roughnessstones_2ndfloor_01_Metalness.png": "795a355a740a96f6a9d01af8f7a1d58c5d71767bc75dff21e620a66e0f5ad9ac",
+    "E:\\Dev\\main_sponza\\textures\\window_frame_01_BaseColor.png": "b7247bf0ba8f9226a00319bb9d493edd19e6033ca0824a58e6edcdbfb0ff133a",
+    "E:\\Dev\\main_sponza\\textures\\window_frame_01_Normal.png": "3272fccb95461f82be978fe9a7a77cf89a5c7fcd91966d670f956b0201288987",
+    "E:\\Dev\\main_sponza\\textures\\window_frame_01_Roughnesswindow_frame_01_Metalness.png": "3739ec622316b1480d3b6f0889c64690d31ec30f57fbfbdda381401d4e5118de",
+    "E:\\Dev\\main_sponza\\textures\\wood_door_01_BaseColor.png": "fcbc484ebf6e707701ee1fec35c4840f8c00f400270210150d2a05dda8a8a22c",
+    "E:\\Dev\\main_sponza\\textures\\wood_door_01_Normal.png": "44dbcb4fdc30cedb13be03053a4b8544956210e673ddc5c3166318ecb633a140",
+    "E:\\Dev\\main_sponza\\textures\\wood_door_01_Roughnesswood_door_01_Metalness.png": "4fe0c71901e18ca48d148f11d9aa090c8531d030dee6b1f8accb5e75d1b8b358",
+    "E:\\Dev\\main_sponza\\textures\\wood_tile_01_BaseColor.png": "72f382ab0b4c82d83a2cefee9a6215b5b1bae4c9437e0ae765b5859623eb1998",
+    "E:\\Dev\\main_sponza\\textures\\wood_tile_01_Normal.png": "67a3fad9dba914099374c3c2ddb61d25a610140193d0a70e917f44d1502eb56b",
+    "E:\\Dev\\main_sponza\\textures\\wood_tile_01_Roughnesswood_tile_01_Metalness.png": "00288a65379887b75a3641330c43f4f78fccc8ea40cab603c90b2c605257ac69"
+  },
+  "smallSourceSha256": "84ff7a7cce458616633154da7b88befb2b72334627578e341eb52d90a7973730",
+  "environmentSha256": {
+    "E:/Dev/ZenEngine/build/run-button-sponza-settings/RunSessions/run-172951296060300-1.environment.ktx": "2ad269b9e81e8cb9489dba6a2c61f2063b46b450146e2344e6d6e1da2ce60626"
+  },
+  "actualRenderConfiguration": [
+    "ZenApp presentation: fullscreen=false, framebuffer=1280x720",
+    "ZenApp render: 1280x720, async-compute=disabled by configuration, RHI=threaded, ray-provider=compute, ray-query=available, diagnostics=false"
+  ],
+  "setups": {
+    "flat": {
+      "path": "E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\flat.zenrender",
+      "sha256": "b5d5b2b891dc59139c40ea5088a9d4a5c1ea31b89b0663902447c8a2ab41ba38"
+    },
+    "directory": {
+      "path": "E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\directory.zenrender",
+      "sha256": "e8df5813d91a84ea892e91cfcb191d3305bd73e3cd329f56b796c09e423477b9"
+    }
+  },
+  "setupContents": {
+    "version": 1,
+    "packagePath": "E:/Dev/ZenEngine/build/scene-directory-verification/verified/cooks-1795391935998701400/flat-8-0.zenasset",
+    "sourcePath": "E:/Dev/main_sponza/NewSponza_Main_glTF_003.gltf",
+    "processingProfile": "reference",
+    "engineConfiguration": "async_compute=off\ncamera_position=0.55,-0.15,0\ndefault_model=Sponza\ndefault_model_path=E:/Dev/main_sponza/NewSponza_Main_glTF_003.gltf\ndynamic_light.angular_speed_degrees=45\ndynamic_light.enabled=false\ndynamic_light.index=4\ndynamic_light.orbit_center=0,1,0\ndynamic_light.orbit_radius=1\ndynamic_voxel_gi_memory_budget_mb=6144\ndynamic_voxel_gi_query_backend=voxel_dda\nenvironment_intensity=1.0\nenvironment_lighting=true\nenvironment_rotation_degrees=0.0\nenvironment_texture=papermill.ktx\nimported_lights_replace_environment=true\nlight.0.color=1,1,1\nlight.0.intensity=5\nlight.0.position=-0.55,-0.25,-0.13\nlight.0.range=1000\nlight.0.type=point\nlight.1.color=1,1,1\nlight.1.intensity=5\nlight.1.position=0.55,-0.25,-0.13\nlight.1.range=1000\nlight.1.type=point\nlight.2.color=1,1,1\nlight.2.intensity=5\nlight.2.position=-0.55,-0.25,0.13\nlight.2.range=1000\nlight.2.type=point\nlight.3.color=1,1,1\nlight.3.intensity=5\nlight.3.position=0.55,-0.25,0.13\nlight.3.range=1000\nlight.3.type=point\nlight.4.casts_shadows=true\nlight.4.color=0.2,0.4,1.0\nlight.4.enabled=true\nlight.4.intensity=2\nlight.4.position=1,1,0\nlight.4.range=4\nlight.4.type=point\nlight_count=5\nlight_markers.enabled=false\nlight_markers.size=0.03\nmodel_base_path=E:\\Dev\\glTF-Sample-Assets\\Models\nscene_lighting_override=false\nskybox_visible=true\nvoxel_gi_backend=compute\nvoxel_gi_cone_angle_degrees=60.0\nvoxel_gi_cone_count=6\nvoxel_gi_field_resolution=64\nvoxel_gi_gather=probes\nvoxel_gi_indirect_intensity=1.0\nvoxel_gi_max_distance_grid_lengths=1.7321\nvoxel_gi_max_steps=128\nvoxel_gi_method=auto\nvoxel_gi_normal_bias_voxels=1.5\nvoxel_gi_probe_spacing=16\nvoxel_gi_rt_shadows=false\nvoxel_gi_shadow_enabled=true\nvoxel_gi_step_scale=1.0\nvoxel_resolution=128\nvoxelizer=comp\n",
+    "configurationDirectory": "E:/Dev/ZenEngine/Data",
+    "defaultEnvironment": "E:/Dev/ZenEngine/build/run-button-sponza-settings/RunSessions/run-172951296060300-1.environment.ktx",
+    "rendering": {
+      "scenePath": "E:/Dev/main_sponza/NewSponza_Main_glTF_003.gltf",
+      "normalizationCenter": [
+        1.8778648,
+        8.813047,
+        2.4809227
+      ],
+      "normalizationScale": 0.027588582,
+      "algorithm": 1,
+      "lights": [
+        {
+          "id": 1,
+          "origin": 0,
+          "light": {
+            "type": 1,
+            "position": [
+              -0.0632031,
+              -0.1854877,
+              -0.4487836
+            ],
+            "direction": [
+              0,
+              0,
+              -1
+            ],
+            "color": [
+              0.9999999,
+              0.9999998,
+              1
+            ],
+            "intensity": 0.00076112984,
+            "range": 0,
+            "innerAngleDegrees": 0,
+            "outerAngleDegrees": 45,
+            "enabled": true,
+            "castsShadows": true
+          }
+        },
+        {
+          "id": 2,
+          "origin": 0,
+          "light": {
+            "type": 0,
+            "position": [
+              -0.6506139,
+              0.9546006,
+              -0.2381117
+            ],
+            "direction": [
+              0.5505701,
+              -0.82812023,
+              0.10530674
+            ],
+            "color": [
+              0.9999999,
+              0.9999998,
+              1
+            ],
+            "intensity": 1,
+            "range": 0,
+            "innerAngleDegrees": 0,
+            "outerAngleDegrees": 45,
+            "enabled": true,
+            "castsShadows": true
+          }
+        },
+        {
+          "id": 3,
+          "origin": 0,
+          "light": {
+            "type": 1,
+            "position": [
+              0.37910265,
+              -0.15276358,
+              -0.09375586
+            ],
+            "direction": [
+              0,
+              0,
+              -1
+            ],
+            "color": [
+              1,
+              0.45601436,
+              0.11401355
+            ],
+            "intensity": 0.00076112984,
+            "range": 0,
+            "innerAngleDegrees": 0,
+            "outerAngleDegrees": 45,
+            "enabled": true,
+            "castsShadows": true
+          }
+        },
+        {
+          "id": 4,
+          "origin": 0,
+          "light": {
+            "type": 1,
+            "position": [
+              0.22474949,
+              -0.1280567,
+              -0.2006219
+            ],
+            "direction": [
+              0,
+              0,
+              -1
+            ],
+            "color": [
+              1,
+              0.45601436,
+              0.11401355
+            ],
+            "intensity": 0.00076112984,
+            "range": 0,
+            "innerAngleDegrees": 0,
+            "outerAngleDegrees": 45,
+            "enabled": true,
+            "castsShadows": true
+          }
+        },
+        {
+          "id": 5,
+          "origin": 0,
+          "light": {
+            "type": 1,
+            "position": [
+              0.117636725,
+              -0.1280567,
+              -0.20104429
+            ],
+            "direction": [
+              0,
+              0,
+              -1
+            ],
+            "color": [
+              1,
+              0.45601436,
+              0.11401355
+            ],
+            "intensity": 0.00076112984,
+            "range": 0,
+            "innerAngleDegrees": 0,
+            "outerAngleDegrees": 45,
+            "enabled": true,
+            "castsShadows": true
+          }
+        },
+        {
+          "id": 6,
+          "origin": 0,
+          "light": {
+            "type": 1,
+            "position": [
+              0.008710094,
+              -0.1280567,
+              -0.20104429
+            ],
+            "direction": [
+              0,
+              0,
+              -1
+            ],
+            "color": [
+              1,
+              0.45601436,
+              0.11401355
+            ],
+            "intensity": 0.00076112984,
+            "range": 0,
+            "innerAngleDegrees": 0,
+            "outerAngleDegrees": 45,
+            "enabled": true,
+            "castsShadows": true
+          }
+        },
+        {
+          "id": 7,
+          "origin": 0,
+          "light": {
+            "type": 1,
+            "position": [
+              -0.10283122,
+              -0.1280567,
+              -0.20104429
+            ],
+            "direction": [
+              0,
+              0,
+              -1
+            ],
+            "color": [
+              1,
+              0.45601436,
+              0.11401355
+            ],
+            "intensity": 0.00076112984,
+            "range": 0,
+            "innerAngleDegrees": 0,
+            "outerAngleDegrees": 45,
+            "enabled": true,
+            "castsShadows": true
+          }
+        },
+        {
+          "id": 8,
+          "origin": 0,
+          "light": {
+            "type": 1,
+            "position": [
+              -0.21536915,
+              -0.1280567,
+              -0.20104429
+            ],
+            "direction": [
+              0,
+              0,
+              -1
+            ],
+            "color": [
+              1,
+              0.45601436,
+              0.11401355
+            ],
+            "intensity": 0.00076112984,
+            "range": 0,
+            "innerAngleDegrees": 0,
+            "outerAngleDegrees": 45,
+            "enabled": true,
+            "castsShadows": true
+          }
+        },
+        {
+          "id": 9,
+          "origin": 0,
+          "light": {
+            "type": 1,
+            "position": [
+              -0.32285774,
+              -0.1280567,
+              -0.20104429
+            ],
+            "direction": [
+              0,
+              0,
+              -1
+            ],
+            "color": [
+              1,
+              0.45601436,
+              0.11401355
+            ],
+            "intensity": 0.00076112984,
+            "range": 0,
+            "innerAngleDegrees": 0,
+            "outerAngleDegrees": 45,
+            "enabled": true,
+            "castsShadows": true
+          }
+        },
+        {
+          "id": 10,
+          "origin": 0,
+          "light": {
+            "type": 1,
+            "position": [
+              0.22474949,
+              -0.1280567,
+              0.062807016
+            ],
+            "direction": [
+              0,
+              0,
+              -1
+            ],
+            "color": [
+              1,
+              0.45601436,
+              0.11401355
+            ],
+            "intensity": 0.00076112984,
+            "range": 0,
+            "innerAngleDegrees": 0,
+            "outerAngleDegrees": 45,
+            "enabled": true,
+            "castsShadows": true
+          }
+        },
+        {
+          "id": 11,
+          "origin": 0,
+          "light": {
+            "type": 1,
+            "position": [
+              0.117636725,
+              -0.1280567,
+              0.062384628
+            ],
+            "direction": [
+              0,
+              0,
+              -1
+            ],
+            "color": [
+              1,
+              0.45601436,
+              0.11401355
+            ],
+            "intensity": 0.00076112984,
+            "range": 0,
+            "innerAngleDegrees": 0,
+            "outerAngleDegrees": 45,
+            "enabled": true,
+            "castsShadows": true
+          }
+        },
+        {
+          "id": 12,
+          "origin": 0,
+          "light": {
+            "type": 1,
+            "position": [
+              0.008710094,
+              -0.1280567,
+              0.062384628
+            ],
+            "direction": [
+              0,
+              0,
+              -1
+            ],
+            "color": [
+              1,
+              0.45601436,
+              0.11401355
+            ],
+            "intensity": 0.00076112984,
+            "range": 0,
+            "innerAngleDegrees": 0,
+            "outerAngleDegrees": 45,
+            "enabled": true,
+            "castsShadows": true
+          }
+        },
+        {
+          "id": 13,
+          "origin": 0,
+          "light": {
+            "type": 1,
+            "position": [
+              -0.10283122,
+              -0.1280567,
+              0.062384628
+            ],
+            "direction": [
+              0,
+              0,
+              -1
+            ],
+            "color": [
+              1,
+              0.45601436,
+              0.11401355
+            ],
+            "intensity": 0.00076112984,
+            "range": 0,
+            "innerAngleDegrees": 0,
+            "outerAngleDegrees": 45,
+            "enabled": true,
+            "castsShadows": true
+          }
+        },
+        {
+          "id": 14,
+          "origin": 0,
+          "light": {
+            "type": 1,
+            "position": [
+              -0.21536915,
+              -0.1280567,
+              0.062384628
+            ],
+            "direction": [
+              0,
+              0,
+              -1
+            ],
+            "color": [
+              1,
+              0.45601436,
+              0.11401355
+            ],
+            "intensity": 0.00076112984,
+            "range": 0,
+            "innerAngleDegrees": 0,
+            "outerAngleDegrees": 45,
+            "enabled": true,
+            "castsShadows": true
+          }
+        },
+        {
+          "id": 15,
+          "origin": 0,
+          "light": {
+            "type": 1,
+            "position": [
+              -0.32285774,
+              -0.1280567,
+              0.062384628
+            ],
+            "direction": [
+              0,
+              0,
+              -1
+            ],
+            "color": [
+              1,
+              0.45601436,
+              0.11401355
+            ],
+            "intensity": 0.00076112984,
+            "range": 0,
+            "innerAngleDegrees": 0,
+            "outerAngleDegrees": 45,
+            "enabled": true,
+            "castsShadows": true
+          }
+        },
+        {
+          "id": 16,
+          "origin": 0,
+          "light": {
+            "type": 1,
+            "position": [
+              -0.21315601,
+              0.013026923,
+              0.06025655
+            ],
+            "direction": [
+              0,
+              0,
+              -1
+            ],
+            "color": [
+              1,
+              0.45601436,
+              0.11401355
+            ],
+            "intensity": 0.00076112984,
+            "range": 0,
+            "innerAngleDegrees": 0,
+            "outerAngleDegrees": 45,
+            "enabled": true,
+            "castsShadows": true
+          }
+        },
+        {
+          "id": 17,
+          "origin": 0,
+          "light": {
+            "type": 1,
+            "position": [
+              -0.32123625,
+              0.013026923,
+              0.062384628
+            ],
+            "direction": [
+              0,
+              0,
+              -1
+            ],
+            "color": [
+              1,
+              0.45601436,
+              0.11401355
+            ],
+            "intensity": 0.00076112984,
+            "range": 0,
+            "innerAngleDegrees": 0,
+            "outerAngleDegrees": 45,
+            "enabled": true,
+            "castsShadows": true
+          }
+        },
+        {
+          "id": 18,
+          "origin": 0,
+          "light": {
+            "type": 1,
+            "position": [
+              0.007825032,
+              0.013026923,
+              0.06025655
+            ],
+            "direction": [
+              0,
+              0,
+              -1
+            ],
+            "color": [
+              1,
+              0.45601436,
+              0.11401355
+            ],
+            "intensity": 0.00076112984,
+            "range": 0,
+            "innerAngleDegrees": 0,
+            "outerAngleDegrees": 45,
+            "enabled": true,
+            "castsShadows": true
+          }
+        },
+        {
+          "id": 19,
+          "origin": 0,
+          "light": {
+            "type": 1,
+            "position": [
+              0.2261547,
+              0.013026923,
+              0.06193336
+            ],
+            "direction": [
+              0,
+              0,
+              -1
+            ],
+            "color": [
+              1,
+              0.45601436,
+              0.11401355
+            ],
+            "intensity": 0.00076112984,
+            "range": 0,
+            "innerAngleDegrees": 0,
+            "outerAngleDegrees": 45,
+            "enabled": true,
+            "castsShadows": true
+          }
+        },
+        {
+          "id": 20,
+          "origin": 0,
+          "light": {
+            "type": 1,
+            "position": [
+              0.2261547,
+              0.013026923,
+              -0.19885936
+            ],
+            "direction": [
+              0,
+              0,
+              -1
+            ],
+            "color": [
+              1,
+              0.45601436,
+              0.11401355
+            ],
+            "intensity": 0.00076112984,
+            "range": 0,
+            "innerAngleDegrees": 0,
+            "outerAngleDegrees": 45,
+            "enabled": true,
+            "castsShadows": true
+          }
+        },
+        {
+          "id": 21,
+          "origin": 0,
+          "light": {
+            "type": 1,
+            "position": [
+              0.005955171,
+              0.013026923,
+              -0.19684422
+            ],
+            "direction": [
+              0,
+              0,
+              -1
+            ],
+            "color": [
+              1,
+              0.45601436,
+              0.11401355
+            ],
+            "intensity": 0.00076112984,
+            "range": 0,
+            "innerAngleDegrees": 0,
+            "outerAngleDegrees": 45,
+            "enabled": true,
+            "castsShadows": true
+          }
+        },
+        {
+          "id": 22,
+          "origin": 0,
+          "light": {
+            "type": 1,
+            "position": [
+              -0.213136,
+              0.013026923,
+              -0.19709447
+            ],
+            "direction": [
+              0,
+              0,
+              -1
+            ],
+            "color": [
+              1,
+              0.5400035,
+              0.19148737
+            ],
+            "intensity": 0.00076112984,
+            "range": 0,
+            "innerAngleDegrees": 0,
+            "outerAngleDegrees": 45,
+            "enabled": true,
+            "castsShadows": true
+          }
+        },
+        {
+          "id": 23,
+          "origin": 0,
+          "light": {
+            "type": 1,
+            "position": [
+              -0.32082677,
+              0.013026923,
+              -0.19892722
+            ],
+            "direction": [
+              0,
+              0,
+              -1
+            ],
+            "color": [
+              1,
+              0.45601436,
+              0.11401355
+            ],
+            "intensity": 0.00076112984,
+            "range": 0,
+            "innerAngleDegrees": 0,
+            "outerAngleDegrees": 45,
+            "enabled": true,
+            "castsShadows": true
+          }
+        },
+        {
+          "id": 24,
+          "origin": 0,
+          "light": {
+            "type": 1,
+            "position": [
+              -0.4267363,
+              -0.13643253,
+              -0.066626556
+            ],
+            "direction": [
+              0,
+              0,
+              -1
+            ],
+            "color": [
+              1,
+              0.45601436,
+              0.11401355
+            ],
+            "intensity": 0.00076112984,
+            "range": 0,
+            "innerAngleDegrees": 0,
+            "outerAngleDegrees": 45,
+            "enabled": true,
+            "castsShadows": true
+          }
+        }
+      ],
+      "cameraLight": {
+        "enabled": false,
+        "color": [
+          1,
+          1,
+          1
+        ],
+        "intensity": 0.0025,
+        "range": 0.12,
+        "radius": 0.005,
+        "followDistance": 0.08,
+        "followCamera": true,
+        "position": [
+          0,
+          0,
+          0
+        ]
+      },
+      "environment": {
+        "texturePath": "",
+        "intensity": 1,
+        "rotationDegrees": 0,
+        "lighting": false,
+        "skybox": true
+      },
+      "gi": {
+        "resolution": 128,
+        "cone": {
+          "rayProvider": 2,
+          "samples": 4,
+          "accelerationStructureBudgetMB": 0,
+          "referenceSamples": 0,
+          "historyFrames": 32,
+          "temporal": true,
+          "filter": true,
+          "indirectDiffuse": true,
+          "specularOcclusion": true,
+          "reflections": 2,
+          "fieldResolution": 64,
+          "indirectIntensity": 1,
+          "normalBiasVoxels": 1.5,
+          "shadows": true,
+          "rtShadows": true,
+          "analyticLighting": true,
+          "environmentLighting": true,
+          "emissiveLighting": true,
+          "restirGI": true,
+          "restirSpatial": true,
+          "restirSpecular": true,
+          "pixelResolutionDivisor": 2,
+          "rayTracingPipeline": true,
+          "referenceTileStride": 1,
+          "worldRadianceCache": true,
+          "nativeProbeBenchmark": false,
+          "radianceCache": false
+        },
+        "asyncCompute": 1,
+        "averagedReflectance": false,
+        "reflectanceBudgetBytes": 0,
+        "shadowMapResolution": 1024
+      },
+      "debug": {
+        "output": 0,
+        "linearDepth": true,
+        "minimum": 0,
+        "maximum": 10,
+        "lightId": 1,
+        "face": 0,
+        "axis": 2,
+        "slice": 0,
+        "mip": 0
+      },
+      "lightMarkers": false,
+      "lightMarkerSize": 0.03,
+      "normalMaps": true
+    },
+    "camera": {
+      "eye": [
+        -0.051807632046720745,
+        -0.19921240210533142,
+        -0.06844513401580105
+      ],
+      "target": [
+        0.9121031479532792,
+        -0.004898672105331431,
+        0.11353863598419894
+      ],
+      "sceneScale": 1.3156621,
+      "aspect": 1.7777777777777777,
+      "verticalFovDegrees": 58.5119763983259,
+      "nearPlane": 0.0027588582000000004,
+      "farPlane": 275.88582,
+      "orthographic": false
+    },
+    "run": {
+      "windowWidth": 3840,
+      "windowHeight": 2160,
+      "renderWidth": 3840,
+      "renderHeight": 2160,
+      "fullscreen": true,
+      "followWindow": false,
+      "vsync": false,
+      "presentMode": 0,
+      "rhiMode": 1,
+      "validation": true,
+      "gpuTimings": false,
+      "cameraMoveSpeed": 1,
+      "framesInFlight": 2,
+      "workerThreads": 8,
+      "shadowDepthBias": 1.25,
+      "shadowSlopeBias": 1.75
+    },
+    "animationEnabled": false,
+    "animationClip": 0,
+    "animationLoop": true
+  },
+  "freshCooks": {
+    "flat-8": [
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\main_sponza\\NewSponza_Main_glTF_003.gltf --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\cooks-1795391935998701400\\flat-8-0.zenasset --layout flat --workers 8 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 11.4695,
+        "peakWorkingSetBytes": 7422607360,
+        "storageBytes": {
+          "logical": 2395363740,
+          "allocated": 2395365376,
+          "count": 1
+        }
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\main_sponza\\NewSponza_Main_glTF_003.gltf --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\cooks-1795391935998701400\\flat-8-1.zenasset --layout flat --workers 8 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 11.265,
+        "peakWorkingSetBytes": 7423062016,
+        "storageBytes": {
+          "logical": 2395363740,
+          "allocated": 2395365376,
+          "count": 1
+        }
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\main_sponza\\NewSponza_Main_glTF_003.gltf --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\cooks-1795391935998701400\\flat-8-2.zenasset --layout flat --workers 8 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 11.2155,
+        "peakWorkingSetBytes": 7422390272,
+        "storageBytes": {
+          "logical": 2395363740,
+          "allocated": 2395365376,
+          "count": 1
+        }
+      }
+    ],
+    "directory-1": [
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\main_sponza\\NewSponza_Main_glTF_003.gltf --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\cooks-1795391935998701400\\directory-1-0 --layout directory --workers 1 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 37.9158,
+        "peakWorkingSetBytes": 7418359808,
+        "storageBytes": {
+          "logical": 2395375456,
+          "allocated": 2395529280,
+          "count": 77
+        },
+        "images_encoded": 72,
+        "images_reused": 0,
+        "geometry_reused": false,
+        "part_bytes_written": 2395251383
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\main_sponza\\NewSponza_Main_glTF_003.gltf --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\cooks-1795391935998701400\\directory-1-1 --layout directory --workers 1 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 38.0486,
+        "peakWorkingSetBytes": 7418183680,
+        "storageBytes": {
+          "logical": 2395375456,
+          "allocated": 2395529280,
+          "count": 77
+        },
+        "images_encoded": 72,
+        "images_reused": 0,
+        "geometry_reused": false,
+        "part_bytes_written": 2395251383
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\main_sponza\\NewSponza_Main_glTF_003.gltf --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\cooks-1795391935998701400\\directory-1-2 --layout directory --workers 1 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 38.1681,
+        "peakWorkingSetBytes": 7418478592,
+        "storageBytes": {
+          "logical": 2395375456,
+          "allocated": 2395529280,
+          "count": 77
+        },
+        "images_encoded": 72,
+        "images_reused": 0,
+        "geometry_reused": false,
+        "part_bytes_written": 2395251383
+      }
+    ],
+    "directory-8": [
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\main_sponza\\NewSponza_Main_glTF_003.gltf --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\cooks-1795391935998701400\\directory-8-0 --layout directory --workers 8 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 7.7051,
+        "peakWorkingSetBytes": 7422038016,
+        "storageBytes": {
+          "logical": 2395375456,
+          "allocated": 2395529280,
+          "count": 77
+        },
+        "images_encoded": 72,
+        "images_reused": 0,
+        "geometry_reused": false,
+        "part_bytes_written": 2395251383
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\main_sponza\\NewSponza_Main_glTF_003.gltf --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\cooks-1795391935998701400\\directory-8-1 --layout directory --workers 8 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 7.6609,
+        "peakWorkingSetBytes": 7422947328,
+        "storageBytes": {
+          "logical": 2395375456,
+          "allocated": 2395529280,
+          "count": 77
+        },
+        "images_encoded": 72,
+        "images_reused": 0,
+        "geometry_reused": false,
+        "part_bytes_written": 2395251383
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\main_sponza\\NewSponza_Main_glTF_003.gltf --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\cooks-1795391935998701400\\directory-8-2 --layout directory --workers 8 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 7.5503,
+        "peakWorkingSetBytes": 7423647744,
+        "storageBytes": {
+          "logical": 2395375456,
+          "allocated": 2395529280,
+          "count": 77
+        },
+        "images_encoded": 72,
+        "images_reused": 0,
+        "geometry_reused": false,
+        "part_bytes_written": 2395251383
+      }
+    ]
+  },
+  "smallFixture": {
+    "flat-8": [
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\ZenEngine\\ZenAssetProcessor\\tests\\fixtures\\complete_scene.glb --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\small-precise-1795392526804536800\\flat-8-0.zenasset --layout flat --workers 8 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 0.0093,
+        "peakWorkingSetBytes": 6340608,
+        "storageBytes": {
+          "logical": 6113,
+          "allocated": 8192,
+          "count": 1
+        }
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\ZenEngine\\ZenAssetProcessor\\tests\\fixtures\\complete_scene.glb --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\small-precise-1795392526804536800\\flat-8-1.zenasset --layout flat --workers 8 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 0.0086,
+        "peakWorkingSetBytes": 1986560,
+        "storageBytes": {
+          "logical": 6113,
+          "allocated": 8192,
+          "count": 1
+        }
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\ZenEngine\\ZenAssetProcessor\\tests\\fixtures\\complete_scene.glb --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\small-precise-1795392526804536800\\flat-8-2.zenasset --layout flat --workers 8 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 0.0081,
+        "peakWorkingSetBytes": 6631424,
+        "storageBytes": {
+          "logical": 6113,
+          "allocated": 8192,
+          "count": 1
+        }
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\ZenEngine\\ZenAssetProcessor\\tests\\fixtures\\complete_scene.glb --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\small-precise-1795392526804536800\\flat-8-3.zenasset --layout flat --workers 8 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 0.0081,
+        "peakWorkingSetBytes": 1982464,
+        "storageBytes": {
+          "logical": 6113,
+          "allocated": 8192,
+          "count": 1
+        }
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\ZenEngine\\ZenAssetProcessor\\tests\\fixtures\\complete_scene.glb --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\small-precise-1795392526804536800\\flat-8-4.zenasset --layout flat --workers 8 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 0.0081,
+        "peakWorkingSetBytes": 1986560,
+        "storageBytes": {
+          "logical": 6113,
+          "allocated": 8192,
+          "count": 1
+        }
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\ZenEngine\\ZenAssetProcessor\\tests\\fixtures\\complete_scene.glb --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\small-precise-1795392526804536800\\flat-8-5.zenasset --layout flat --workers 8 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 0.0082,
+        "peakWorkingSetBytes": 6680576,
+        "storageBytes": {
+          "logical": 6113,
+          "allocated": 8192,
+          "count": 1
+        }
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\ZenEngine\\ZenAssetProcessor\\tests\\fixtures\\complete_scene.glb --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\small-precise-1795392526804536800\\flat-8-6.zenasset --layout flat --workers 8 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 0.0081,
+        "peakWorkingSetBytes": 5558272,
+        "storageBytes": {
+          "logical": 6113,
+          "allocated": 8192,
+          "count": 1
+        }
+      }
+    ],
+    "directory-1": [
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\ZenEngine\\ZenAssetProcessor\\tests\\fixtures\\complete_scene.glb --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\small-precise-1795392526804536800\\directory-1-0 --layout directory --workers 1 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 0.0179,
+        "peakWorkingSetBytes": 6352896,
+        "storageBytes": {
+          "logical": 6956,
+          "allocated": 8808,
+          "count": 6
+        },
+        "images_encoded": 1,
+        "images_reused": 0,
+        "geometry_reused": false,
+        "part_bytes_written": 521
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\ZenEngine\\ZenAssetProcessor\\tests\\fixtures\\complete_scene.glb --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\small-precise-1795392526804536800\\directory-1-1 --layout directory --workers 1 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 0.0175,
+        "peakWorkingSetBytes": 6004736,
+        "storageBytes": {
+          "logical": 6956,
+          "allocated": 8808,
+          "count": 6
+        },
+        "images_encoded": 1,
+        "images_reused": 0,
+        "geometry_reused": false,
+        "part_bytes_written": 521
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\ZenEngine\\ZenAssetProcessor\\tests\\fixtures\\complete_scene.glb --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\small-precise-1795392526804536800\\directory-1-2 --layout directory --workers 1 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 0.0175,
+        "peakWorkingSetBytes": 6635520,
+        "storageBytes": {
+          "logical": 6956,
+          "allocated": 8808,
+          "count": 6
+        },
+        "images_encoded": 1,
+        "images_reused": 0,
+        "geometry_reused": false,
+        "part_bytes_written": 521
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\ZenEngine\\ZenAssetProcessor\\tests\\fixtures\\complete_scene.glb --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\small-precise-1795392526804536800\\directory-1-3 --layout directory --workers 1 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 0.0178,
+        "peakWorkingSetBytes": 5378048,
+        "storageBytes": {
+          "logical": 6956,
+          "allocated": 8808,
+          "count": 6
+        },
+        "images_encoded": 1,
+        "images_reused": 0,
+        "geometry_reused": false,
+        "part_bytes_written": 521
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\ZenEngine\\ZenAssetProcessor\\tests\\fixtures\\complete_scene.glb --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\small-precise-1795392526804536800\\directory-1-4 --layout directory --workers 1 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 0.0172,
+        "peakWorkingSetBytes": 6356992,
+        "storageBytes": {
+          "logical": 6956,
+          "allocated": 8808,
+          "count": 6
+        },
+        "images_encoded": 1,
+        "images_reused": 0,
+        "geometry_reused": false,
+        "part_bytes_written": 521
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\ZenEngine\\ZenAssetProcessor\\tests\\fixtures\\complete_scene.glb --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\small-precise-1795392526804536800\\directory-1-5 --layout directory --workers 1 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 0.0173,
+        "peakWorkingSetBytes": 6692864,
+        "storageBytes": {
+          "logical": 6956,
+          "allocated": 8808,
+          "count": 6
+        },
+        "images_encoded": 1,
+        "images_reused": 0,
+        "geometry_reused": false,
+        "part_bytes_written": 521
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\ZenEngine\\ZenAssetProcessor\\tests\\fixtures\\complete_scene.glb --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\small-precise-1795392526804536800\\directory-1-6 --layout directory --workers 1 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 0.0173,
+        "peakWorkingSetBytes": 6348800,
+        "storageBytes": {
+          "logical": 6956,
+          "allocated": 8808,
+          "count": 6
+        },
+        "images_encoded": 1,
+        "images_reused": 0,
+        "geometry_reused": false,
+        "part_bytes_written": 521
+      }
+    ],
+    "directory-8": [
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\ZenEngine\\ZenAssetProcessor\\tests\\fixtures\\complete_scene.glb --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\small-precise-1795392526804536800\\directory-8-0 --layout directory --workers 8 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 0.0206,
+        "peakWorkingSetBytes": 6868992,
+        "storageBytes": {
+          "logical": 6956,
+          "allocated": 8808,
+          "count": 6
+        },
+        "images_encoded": 1,
+        "images_reused": 0,
+        "geometry_reused": false,
+        "part_bytes_written": 521
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\ZenEngine\\ZenAssetProcessor\\tests\\fixtures\\complete_scene.glb --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\small-precise-1795392526804536800\\directory-8-1 --layout directory --workers 8 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 0.0177,
+        "peakWorkingSetBytes": 10960896,
+        "storageBytes": {
+          "logical": 6956,
+          "allocated": 8808,
+          "count": 6
+        },
+        "images_encoded": 1,
+        "images_reused": 0,
+        "geometry_reused": false,
+        "part_bytes_written": 521
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\ZenEngine\\ZenAssetProcessor\\tests\\fixtures\\complete_scene.glb --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\small-precise-1795392526804536800\\directory-8-2 --layout directory --workers 8 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 0.0172,
+        "peakWorkingSetBytes": 6885376,
+        "storageBytes": {
+          "logical": 6956,
+          "allocated": 8808,
+          "count": 6
+        },
+        "images_encoded": 1,
+        "images_reused": 0,
+        "geometry_reused": false,
+        "part_bytes_written": 521
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\ZenEngine\\ZenAssetProcessor\\tests\\fixtures\\complete_scene.glb --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\small-precise-1795392526804536800\\directory-8-3 --layout directory --workers 8 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 0.0181,
+        "peakWorkingSetBytes": 6942720,
+        "storageBytes": {
+          "logical": 6956,
+          "allocated": 8808,
+          "count": 6
+        },
+        "images_encoded": 1,
+        "images_reused": 0,
+        "geometry_reused": false,
+        "part_bytes_written": 521
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\ZenEngine\\ZenAssetProcessor\\tests\\fixtures\\complete_scene.glb --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\small-precise-1795392526804536800\\directory-8-4 --layout directory --workers 8 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 0.0171,
+        "peakWorkingSetBytes": 1986560,
+        "storageBytes": {
+          "logical": 6956,
+          "allocated": 8808,
+          "count": 6
+        },
+        "images_encoded": 1,
+        "images_reused": 0,
+        "geometry_reused": false,
+        "part_bytes_written": 521
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\ZenEngine\\ZenAssetProcessor\\tests\\fixtures\\complete_scene.glb --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\small-precise-1795392526804536800\\directory-8-5 --layout directory --workers 8 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 0.0179,
+        "peakWorkingSetBytes": 6934528,
+        "storageBytes": {
+          "logical": 6956,
+          "allocated": 8808,
+          "count": 6
+        },
+        "images_encoded": 1,
+        "images_reused": 0,
+        "geometry_reused": false,
+        "part_bytes_written": 521
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\ZenEngine\\ZenAssetProcessor\\tests\\fixtures\\complete_scene.glb --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\small-precise-1795392526804536800\\directory-8-6 --layout directory --workers 8 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+        "wallSeconds": 0.0176,
+        "peakWorkingSetBytes": 10911744,
+        "storageBytes": {
+          "logical": 6956,
+          "allocated": 8808,
+          "count": 6
+        },
+        "images_encoded": 1,
+        "images_reused": 0,
+        "geometry_reused": false,
+        "part_bytes_written": 521
+      }
+    ]
+  },
+  "incrementalInputs": {
+    "geometry": {
+      "file": "E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\scratch-1795392108279589200\\NewSponza_Main_glTF_003.bin",
+      "sha256": "4fa07e2c9581d3efd23696abe5020e30428ad8dc35682205612fbacf03c185aa"
+    },
+    "texture": {
+      "file": "E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\scratch-1795392108279589200\\textures\\arch_stone_wall_01_Normal.png",
+      "sha256": "c770b5c53be07c0cebbea83ffe601e07758941269afdd19cf5dde190e0b77873"
+    }
+  },
+  "incrementalCooks": {
+    "initial": {
+      "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\scratch-1795392108279589200\\NewSponza_Main_glTF_003.gltf --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\scratch-1795392108279589200\\cache --layout directory --workers 8 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+      "wallSeconds": 8.2932,
+      "peakWorkingSetBytes": 7422775296,
+      "storageBytes": {
+        "logical": 2395375670,
+        "allocated": 2395529352,
+        "count": 77
+      },
+      "images_encoded": 72,
+      "images_reused": 0,
+      "geometry_reused": false,
+      "part_bytes_written": 2395251383
+    },
+    "mesh": {
+      "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\scratch-1795392108279589200\\NewSponza_Main_glTF_003.gltf --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\scratch-1795392108279589200\\cache --layout directory --workers 8 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+      "wallSeconds": 3.9527,
+      "peakWorkingSetBytes": 7422361600,
+      "storageBytes": {
+        "logical": 2467882046,
+        "allocated": 2468036744,
+        "count": 78
+      },
+      "images_encoded": 0,
+      "images_reused": 72,
+      "geometry_reused": false,
+      "part_bytes_written": 72506376
+    },
+    "texture": {
+      "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\scratch-1795392108279589200\\NewSponza_Main_glTF_003.gltf --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\scratch-1795392108279589200\\cache --layout directory --workers 8 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+      "wallSeconds": 3.472,
+      "peakWorkingSetBytes": 7429636096,
+      "storageBytes": {
+        "logical": 2518837731,
+        "allocated": 2518995080,
+        "count": 79
+      },
+      "images_encoded": 1,
+      "images_reused": 71,
+      "geometry_reused": true,
+      "part_bytes_written": 50955669
+    },
+    "unchanged": {
+      "command": "E:\\Dev\\ZenEngine\\build\\checks\\asset-loading-nov22\\processor\\zenassetc.exe cook E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\scratch-1795392108279589200\\NewSponza_Main_glTF_003.gltf --output E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\scratch-1795392108279589200\\cache --layout directory --workers 8 --profile reference --compression zstd --zstd-level 3 --mesh-compression meshopt",
+      "wallSeconds": 3.3482,
+      "peakWorkingSetBytes": 7429955584,
+      "storageBytes": {
+        "logical": 2518837731,
+        "allocated": 2518995080,
+        "count": 79
+      },
+      "images_encoded": 0,
+      "images_reused": 72,
+      "geometry_reused": true,
+      "part_bytes_written": 0
+    }
+  },
+  "initialParts": [
+    "image-012de8cd444ca21d.zenpart",
+    "image-02d6c13f94a12ae8.zenpart",
+    "image-038827cbf2d08fd2.zenpart",
+    "image-072a05d796467a24.zenpart",
+    "image-0d514c9c4aa7bb67.zenpart",
+    "image-11bea074029a4785.zenpart",
+    "image-11e060b719b1189b.zenpart",
+    "image-12ccf0b72ff8837f.zenpart",
+    "image-13994aa3f43fe76d.zenpart",
+    "image-149ce92c6ec47bfe.zenpart",
+    "image-154611c5acef325e.zenpart",
+    "image-1f5f0d17a29f3a42.zenpart",
+    "image-35d4f788836a5075.zenpart",
+    "image-3604721c6a5805fc.zenpart",
+    "image-396f31a27b2157e3.zenpart",
+    "image-39e8a317ede968fe.zenpart",
+    "image-3f465823154211bc.zenpart",
+    "image-41ea19c28f520432.zenpart",
+    "image-46de45df0ff8be29.zenpart",
+    "image-484f598cd2d2efd1.zenpart",
+    "image-4ce1e96b6dd9cd7c.zenpart",
+    "image-571e94111c4a594a.zenpart",
+    "image-624c330b853239ce.zenpart",
+    "image-63a5eae3b20690d5.zenpart",
+    "image-6bfdb3cf43b5e1db.zenpart",
+    "image-6c103e5df32e7bba.zenpart",
+    "image-708a77a2604721ec.zenpart",
+    "image-7c036352393892b2.zenpart",
+    "image-7cc4f93c2e38fd40.zenpart",
+    "image-7ec224a04dace656.zenpart",
+    "image-7f12f620034a54fb.zenpart",
+    "image-7f3c5ed4d24f4268.zenpart",
+    "image-810de47c2891bf79.zenpart",
+    "image-92501e314d0d0768.zenpart",
+    "image-95a6107ae542855d.zenpart",
+    "image-9a02ff68ab53f482.zenpart",
+    "image-9a2cdce9e95b6cf8.zenpart",
+    "image-9a71bcdb879888ed.zenpart",
+    "image-9adde91778276547.zenpart",
+    "image-9bdae572ff9d7be3.zenpart",
+    "image-a3f4acc03377b231.zenpart",
+    "image-a867448710daccfa.zenpart",
+    "image-aa796ae1f7657f0c.zenpart",
+    "image-ac06437aaad14a44.zenpart",
+    "image-add2a2777a7fa374.zenpart",
+    "image-afc081c61fdd8810.zenpart",
+    "image-bad00884aa956354.zenpart",
+    "image-baf7f6443bad05b6.zenpart",
+    "image-be0e9bcebc4f9174.zenpart",
+    "image-be9a4c04a98da7e0.zenpart",
+    "image-c0b239a8335d045d.zenpart",
+    "image-c3dfbe025eefc6da.zenpart",
+    "image-c475a7aa04681192.zenpart",
+    "image-c616c62d31655742.zenpart",
+    "image-cd0ac4cf0ff200f8.zenpart",
+    "image-ce987cc2912f1ba5.zenpart",
+    "image-d0173c607d555b97.zenpart",
+    "image-d0f73caeca9d9e6d.zenpart",
+    "image-d1a281156ea4cf87.zenpart",
+    "image-d49f03ef62fd8d09.zenpart",
+    "image-e2a3963f940f382a.zenpart",
+    "image-e6c11add2a034880.zenpart",
+    "image-e78b19ae17eed293.zenpart",
+    "image-e9e59d3137afae31.zenpart",
+    "image-ea25bff8215ed241.zenpart",
+    "image-ebd436de0c7178a3.zenpart",
+    "image-ed405b16b7b4b51d.zenpart",
+    "image-ef26bd8ea358500e.zenpart",
+    "image-efa58d79bccc18dd.zenpart",
+    "image-f3bf4db5fa181b6b.zenpart",
+    "image-f5eb018d278ea79e.zenpart",
+    "image-faf29300bfd5b2c4.zenpart",
+    "mesh-7928c6132e451d5a.zenpart"
+  ],
+  "addedParts": {
+    "mesh": [
+      "mesh-50c6a5a805ef3527.zenpart"
+    ],
+    "texture": [
+      "image-b1ccea8e3133ab8e.zenpart"
+    ],
+    "unchanged": []
+  },
+  "warmups": {
+    "directory-1": {
+      "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\directory.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=1",
+      "wallSeconds": 13.1635,
+      "peakWorkingSetBytes": 1334390784,
+      "cpuSceneSeconds": 5.216,
+      "readySeconds": 12.83
+    },
+    "flat-1": {
+      "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\flat.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=1",
+      "wallSeconds": 12.7404,
+      "peakWorkingSetBytes": 1334771712,
+      "cpuSceneSeconds": 5.185,
+      "readySeconds": 12.432
+    },
+    "directory-2": {
+      "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\directory.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=2",
+      "wallSeconds": 12.1865,
+      "peakWorkingSetBytes": 1333665792,
+      "cpuSceneSeconds": 4.721,
+      "readySeconds": 11.862
+    },
+    "flat-2": {
+      "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\flat.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=2",
+      "wallSeconds": 12.4007,
+      "peakWorkingSetBytes": 1334124544,
+      "cpuSceneSeconds": 4.914,
+      "readySeconds": 12.093
+    },
+    "directory-4": {
+      "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\directory.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=4",
+      "wallSeconds": 9.2394,
+      "peakWorkingSetBytes": 1333653504,
+      "cpuSceneSeconds": 1.799,
+      "readySeconds": 8.932
+    },
+    "flat-4": {
+      "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\flat.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=4",
+      "wallSeconds": 12.4339,
+      "peakWorkingSetBytes": 1333960704,
+      "cpuSceneSeconds": 4.924,
+      "readySeconds": 12.124
+    },
+    "directory-8": {
+      "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\directory.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=8",
+      "wallSeconds": 8.5883,
+      "peakWorkingSetBytes": 1334484992,
+      "cpuSceneSeconds": 0.964,
+      "readySeconds": 8.254
+    },
+    "flat-8": {
+      "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\flat.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=8",
+      "wallSeconds": 12.3387,
+      "peakWorkingSetBytes": 1334067200,
+      "cpuSceneSeconds": 4.859,
+      "readySeconds": 12.015
+    }
+  },
+  "cachedLoads": {
+    "flat-1": [
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\flat.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=1",
+        "wallSeconds": 12.4199,
+        "peakWorkingSetBytes": 1333760000,
+        "cpuSceneSeconds": 4.907,
+        "readySeconds": 12.103
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\flat.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=1",
+        "wallSeconds": 12.4167,
+        "peakWorkingSetBytes": 1333309440,
+        "cpuSceneSeconds": 4.887,
+        "readySeconds": 12.095
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\flat.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=1",
+        "wallSeconds": 12.367,
+        "peakWorkingSetBytes": 1333534720,
+        "cpuSceneSeconds": 4.863,
+        "readySeconds": 12.053
+      }
+    ],
+    "directory-1": [
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\directory.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=1",
+        "wallSeconds": 12.3756,
+        "peakWorkingSetBytes": 1334497280,
+        "cpuSceneSeconds": 4.864,
+        "readySeconds": 12.056
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\directory.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=1",
+        "wallSeconds": 12.3316,
+        "peakWorkingSetBytes": 1333784576,
+        "cpuSceneSeconds": 4.836,
+        "readySeconds": 12.009
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\directory.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=1",
+        "wallSeconds": 12.3524,
+        "peakWorkingSetBytes": 1333948416,
+        "cpuSceneSeconds": 4.881,
+        "readySeconds": 12.046
+      }
+    ],
+    "flat-2": [
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\flat.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=2",
+        "wallSeconds": 12.3696,
+        "peakWorkingSetBytes": 1333473280,
+        "cpuSceneSeconds": 4.885,
+        "readySeconds": 12.054
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\flat.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=2",
+        "wallSeconds": 12.3724,
+        "peakWorkingSetBytes": 1333743616,
+        "cpuSceneSeconds": 4.877,
+        "readySeconds": 12.07
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\flat.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=2",
+        "wallSeconds": 12.4133,
+        "peakWorkingSetBytes": 1333686272,
+        "cpuSceneSeconds": 4.872,
+        "readySeconds": 12.106
+      }
+    ],
+    "directory-2": [
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\directory.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=2",
+        "wallSeconds": 12.2114,
+        "peakWorkingSetBytes": 1334493184,
+        "cpuSceneSeconds": 4.754,
+        "readySeconds": 11.899
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\directory.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=2",
+        "wallSeconds": 12.1706,
+        "peakWorkingSetBytes": 1334157312,
+        "cpuSceneSeconds": 4.715,
+        "readySeconds": 11.86
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\directory.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=2",
+        "wallSeconds": 12.146,
+        "peakWorkingSetBytes": 1334366208,
+        "cpuSceneSeconds": 4.719,
+        "readySeconds": 11.836
+      }
+    ],
+    "flat-4": [
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\flat.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=4",
+        "wallSeconds": 12.3997,
+        "peakWorkingSetBytes": 1333948416,
+        "cpuSceneSeconds": 4.893,
+        "readySeconds": 12.095
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\flat.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=4",
+        "wallSeconds": 12.3537,
+        "peakWorkingSetBytes": 1333719040,
+        "cpuSceneSeconds": 4.859,
+        "readySeconds": 12.042
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\flat.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=4",
+        "wallSeconds": 12.3672,
+        "peakWorkingSetBytes": 1333780480,
+        "cpuSceneSeconds": 4.85,
+        "readySeconds": 12.053
+      }
+    ],
+    "directory-4": [
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\directory.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=4",
+        "wallSeconds": 9.2334,
+        "peakWorkingSetBytes": 1333964800,
+        "cpuSceneSeconds": 1.787,
+        "readySeconds": 8.921
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\directory.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=4",
+        "wallSeconds": 9.2556,
+        "peakWorkingSetBytes": 1334370304,
+        "cpuSceneSeconds": 1.782,
+        "readySeconds": 8.938
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\directory.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=4",
+        "wallSeconds": 9.2656,
+        "peakWorkingSetBytes": 1335119872,
+        "cpuSceneSeconds": 1.778,
+        "readySeconds": 8.954
+      }
+    ],
+    "flat-8": [
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\flat.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=8",
+        "wallSeconds": 12.4012,
+        "peakWorkingSetBytes": 1333673984,
+        "cpuSceneSeconds": 4.899,
+        "readySeconds": 12.093
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\flat.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=8",
+        "wallSeconds": 12.3374,
+        "peakWorkingSetBytes": 1333641216,
+        "cpuSceneSeconds": 4.862,
+        "readySeconds": 12.03
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\flat.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=8",
+        "wallSeconds": 12.5836,
+        "peakWorkingSetBytes": 1333243904,
+        "cpuSceneSeconds": 4.894,
+        "readySeconds": 12.277
+      }
+    ],
+    "directory-8": [
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\directory.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=8",
+        "wallSeconds": 8.4144,
+        "peakWorkingSetBytes": 1334775808,
+        "cpuSceneSeconds": 0.961,
+        "readySeconds": 8.102
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\directory.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=8",
+        "wallSeconds": 8.5433,
+        "peakWorkingSetBytes": 1333919744,
+        "cpuSceneSeconds": 0.96,
+        "readySeconds": 8.196
+      },
+      {
+        "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\directory.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=8",
+        "wallSeconds": 8.7287,
+        "peakWorkingSetBytes": 1334620160,
+        "cpuSceneSeconds": 0.978,
+        "readySeconds": 8.419
+      }
+    ]
+  },
+  "captures": {
+    "flat": {
+      "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\flat.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=4 --capture=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\flat.ppm",
+      "wallSeconds": 12.617,
+      "peakWorkingSetBytes": 1333579776,
+      "sha256": "ee0ddf1b1ed030a293d2104fdf56b50fe5907db9714510e178e29652f5ef8277"
+    },
+    "directory": {
+      "command": "E:\\Dev\\ZenEngine\\build\\x64-windows-msvc-release\\bin\\ZenApp.exe --setup=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\directory.zenrender --frames=1 --windowed --width=1280 --height=720 --async-compute=0 --backend=compute --no-ui --read-workers=4 --capture=E:\\Dev\\ZenEngine\\build\\scene-directory-verification\\verified\\directory.ppm",
+      "wallSeconds": 9.3183,
+      "peakWorkingSetBytes": 1334034432,
+      "sha256": "ee0ddf1b1ed030a293d2104fdf56b50fe5907db9714510e178e29652f5ef8277"
+    }
+  }
+}

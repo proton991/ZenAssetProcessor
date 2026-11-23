@@ -1151,6 +1151,27 @@ bool TestDeferredImages(const std::filesystem::path& directory)
     valid &= Check(WriteScene(copy, leaseScene).Succeeded()
                        && ReadSceneDeferredImages(copy, leaseLimits).status.code == StatusCode::ResourceLimit,
                    "A texture decoded early must still fit beside the final graph for a later lease");
+    leaseScene.sourceDocument.clear();
+    leaseScene.images.resize(4, leaseScene.images.front());
+    const std::string packed = (directory / "bounded-parts" / "large.zenasset").string();
+    SceneWriteOptions bounded;
+    bounded.directoryLayout           = true;
+    bounded.maxImageWorkers           = 4;
+    bounded.limits.maxAllocationBytes = 3u << 20;
+    const Status    staged            = WriteScene(packed, leaseScene, bounded);
+    SceneReadLimits concurrent;
+    concurrent.maxAllocationBytes  = 6u << 20;
+    const SceneReadResult admitted = ReadScene(packed, concurrent);
+    valid &= Check(staged.Succeeded() && admitted.scene && scene_test::Same(leaseScene, *admitted.scene),
+                   "Image jobs larger than one worker share can use the full serial budget");
+    concurrent.maxAllocationBytes    = 3u << 20;
+    const SceneReadResult exhausted  = ReadScene(packed, concurrent);
+    valid                           &= Check(exhausted.status.code == StatusCode::ResourceLimit && !exhausted.scene,
+                                             "Resident image results across workers must fit the combined allocation limit");
+    const SceneReadResult deferred   = ReadSceneDeferredImages(packed);
+    const std::string     copied     = (directory / "bounded-copy" / "large.zenasset").string();
+    valid                           &= Check(deferred.scene && WriteScene(copied, *deferred.scene, bounded).Succeeded(),
+                                             "Deferred directory writes can resolve a large lease within the serial allowance");
     valid &= Check(!ReadSceneDeferredImages(std::shared_ptr<const Package>{}).status.Succeeded(), "Reject null package");
     return valid;
 }

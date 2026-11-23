@@ -67,3 +67,42 @@ The comparison point is the optimized single-file implementation at ZenAssetProc
 | Compatibility and recovery | Exercise same-name sources, two variants, a moved directory, first-use migration and direct opens of legacy files, corrupt or missing parts, individually admissible parts exceeding a scene-wide limit, a reader-only installed consumer, cancellation, concurrent recooks and a deferred read held through recook and eviction. Compare rendered output with the same camera and lighting. |
 
 Keep executable, setup and input hashes, exact arguments, worker counts and actual render configuration with the results. Compare a small fixture as well to expose per-file overhead. Ship directory mode as a selectable layout. Judge its speed against both the single-file baseline and the single-worker directory run, and report the memory and space tradeoffs with the result. Publish the processor changes from the ZenEngine submodule checkout first, then update the engine integration and its submodule pointer.
+
+## Release results on New Sponza
+
+Measured on 23 November 2026 with a Ryzen 9 9950X3D, RTX 5080, driver 621.35 and Windows 11 build 26300. New Sponza cook times are medians of three new outputs. The worker count applies to source import as well as package encoding. Load numbers are medians of three launches after one warm-up per layout and worker count. Runs used the operating system file cache without an explicit flush. Peak memory is the median process peak working set. [Run arguments, executable and input hashes, setups, and individual samples](SceneDirectoryCacheMeasurements.json).
+
+| Fresh cook | Wall time | Peak GiB | Logical bytes | Allocated bytes | Files |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Flat, 8 workers | 11.26 s | 6.91 | 2,395,363,740 | 2,395,365,376 | 1 |
+| Directory, 1 worker | 38.05 s | 6.91 | 2,395,375,456 | 2,395,529,280 | 77 |
+| Directory, 8 workers | 7.66 s | 6.91 | 2,395,375,456 | 2,395,529,280 | 77 |
+
+File counts include each model’s manifest, parts, ownership receipt and two lock files. The cache root also has one shared ownership lock. Allocation uses Windows FileStandardInfo.
+
+| Read workers | Flat CPU load | Directory CPU load | Flat ready | Directory ready | Flat peak GiB | Directory peak GiB |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 4.89 s | 4.86 s | 12.10 s | 12.05 s | 1.24 | 1.24 |
+| 2 | 4.88 s | 4.72 s | 12.07 s | 11.86 s | 1.24 | 1.24 |
+| 4 | 4.86 s | 1.78 s | 12.05 s | 8.94 s | 1.24 | 1.24 |
+| 8 | 4.89 s | 0.96 s | 12.09 s | 8.20 s | 1.24 | 1.24 |
+
+The eight-worker cook took 7.66 s, 31% less time than the historical flat baseline and 5.0 times as fast as the single-worker directory cook. CPU load fell from the historical 4.88 s to 0.96 s. Ready time fell from 12.07 s to 8.20 s. Both layouts rendered byte-identical 1280 × 720 PPMs with the saved camera, lights, compute backend and async compute disabled.
+
+| Incremental directory cook | Elapsed | Images encoded / reused | Geometry | Payload bytes written |
+| --- | ---: | ---: | --- | ---: |
+| Two vertex positions exchanged | 3.95 s | 0 / 72 | Rebuilt | 72,506,376 |
+| One source PNG pixel changed | 3.47 s | 1 / 71 | Reused | 50,955,669 |
+| Unchanged inputs | 3.35 s | 0 / 72 | Reused | 0 |
+
+All 479 non-metadata Sponza records had identical schemas, codecs, stored and decoded sizes, and stored checksums in the flat and directory packages. The metadata record carries the input receipts. Every pre-existing part kept its modification time across these edits. The geometry and texture edits each added one content-addressed file. The source hash list was rechecked after the runs.
+
+| Small complete-scene fixture | Wall time | Peak MiB | Logical bytes | Allocated bytes | Files |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Flat, 8 workers | 8 ms | 5.3 | 6,113 | 8,192 | 1 |
+| Directory, 1 worker | 17 ms | 6.1 | 6,956 | 8,808 | 6 |
+| Directory, 8 workers | 18 ms | 6.6 | 6,956 | 8,808 | 6 |
+
+The small-fixture rows use seven alternating launches per configuration and a one-millisecond process wait to resolve startup overhead. This fixture exposes the cost of additional files and publication. Flat remains the default, and directory mode is available for workloads that benefit from independent reads and incremental writes.
+
+All 46 processor CTest suites passed. The engine asset integration, editor input and ZenApp startup suites passed. One model-catalog test skipped because this Windows account lacks symbolic-link creation privileges. A Windows junction probe separately verified that the directory reader rejects redirected texture parts. Editor Run retained the loaded scene through play, pause, resize and quit in both inline and threaded RHI modes. The release CLI validated the historical flat New Sponza package, and the older CLI rejected the directory format marker. The installed reader-only consumer opened glTF, OBJ and animated/skinned FBX directory packages. Recovery coverage includes process exit before replacement, same-stamp input mutation, damaged or missing parts, concurrent publishers, relocation, flat migration, scene-wide limits, and a deferred lease held across replacement and eviction. Desktop UV, masked vertex-alpha and morph-alpha changes matched independent clean cooks.
