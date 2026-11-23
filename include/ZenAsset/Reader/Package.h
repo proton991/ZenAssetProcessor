@@ -90,8 +90,9 @@ struct PackageResult
     std::shared_ptr<const Package> package;
 };
 
-// Retains the open file, so later pathname replacement cannot substitute a new
-// directory/payload. Resource directory views live as long as this object.
+// Retains the manifest and geometry streams and pins the cache generation.
+// Image reads reopen the indexed, content-addressed part and verify its payload.
+// Resource directory views live as long as this object.
 class Package
 {
 public:

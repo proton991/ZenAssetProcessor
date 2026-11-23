@@ -27,6 +27,7 @@ private:
 };
 Status         MakePath(std::string_view utf8, std::filesystem::path& path);
 FileOpenResult OpenFile(const std::filesystem::path& path, bool exclusiveWrite = false);
+FileOpenResult OpenStoredPart(const std::filesystem::path& path, StatusCode pathError = StatusCode::IOError);
 bool           FileLength(FILE* file, uint64_t& bytes);
 bool           SeekFile(FILE* file, uint64_t position);
 Status ReadFileBytes(FILE* file, void* data, uint64_t count, const Cancellation* cancellation, TransferProgress progress = {});

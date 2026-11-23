@@ -782,6 +782,7 @@ Status Cook(const Arguments& arguments)
     options.partStats       = &importStats;
     SceneImportImageCache target{output, options};
     SceneImportContext context = arguments.context;
+    bool                  claimedDirectory = false;
     if (arguments.directoryLayout)
     {
         const SceneFormatDescriptor* format = FindSceneImportFormat(request.path);
@@ -795,6 +796,7 @@ Status Cook(const Arguments& arguments)
             metadata.processing       = arguments.processing;
             metadata.buildFingerprint = LibraryBuildFingerprint();
             status = SceneDirectoryManifest(arguments.output, arguments.input, metadata, arguments.compression, output);
+            claimedDirectory = status.Succeeded();
             context.captureInputHashes = true;
             if (status.Succeeded() && !HasProcessingOperations(arguments.processing))
             {
@@ -880,6 +882,13 @@ Status Cook(const Arguments& arguments)
         std::cout << ',';
         PrintSceneSummary(*cooked.scene);
         std::cout << "}\n";
+    }
+    if (claimedDirectory)
+    {
+        cooked.scene.reset();
+        imported.asset.reset();
+        context.previousReference.reset();
+        TryCollectUnusedSceneParts(output);
     }
     return status;
 }

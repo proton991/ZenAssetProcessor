@@ -134,6 +134,8 @@ can resolve those parts before publication. Call `WriteScene` with the same
 manifest and options to assemble the geometry and publish the complete scene.
 The editor and `zenassetc cook --layout directory` use this for reference imports.
 Processing operations that need resident pixels keep their existing path.
+After a directory cook, the CLI releases its leases and removes parts unused by
+every variant of that model. An active reader or publisher defers cleanup until a later cook.
 
 `SceneImportContext::maxGeometryBytes` separately admits glTF/FBX geometry,
 skin, morph, custom-attribute and animation storage before allocation. It defaults

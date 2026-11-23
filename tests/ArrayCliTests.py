@@ -106,6 +106,9 @@ def directory_cache(executable, directory, scene_tests):
     after = parts(packed)
     assert [p for p in before if p["path"].startswith("textures/")] != [p for p in after if p["path"].startswith("textures/")]
     assert after == parts(rebuilt) and packed.read_bytes() == rebuilt.read_bytes()
+    live_parts = {part["path"] for manifest in packed.parent.glob("*.zenasset") for part in parts(manifest)}
+    stored_parts = {part.relative_to(packed.parent).as_posix() for part in packed.parent.glob("*/*.zenpart")}
+    assert stored_parts == live_parts, "Recooks must retain exactly the parts used by all variants"
     # A vertex alpha change can switch a masked material from cooked to authored pixels.
     # Keep the compressed policy and image files fixed across the change.
     alpha = directory / "masked.gltf"
@@ -155,11 +158,38 @@ def directory_cache(executable, directory, scene_tests):
     invoke(executable, "validate", moved / packed.name, "--read-workers", 4)
 
 
+def many_image_directory_cache(executable, directory):
+    source = directory / "many-images.gltf"
+    fixture(source)
+    document = json.loads(source.read_text())
+    image = document["images"][0]
+    document["images"] = [dict(image, name=f"image-{index}") for index in range(520)]
+    document["textures"] = [{"source": index} for index in range(len(document["images"]))]
+    source.write_text(json.dumps(document))
+
+    # Previous and new generations overlap during a recook. The relative output
+    # must reuse geometry even above the default Windows CRT stream limit.
+    args = ("cook", source.name, "--layout", "directory", "--output", "cache", "--workers", 4)
+    first = json.loads(invoke(executable, *args, cwd=directory).stdout)
+    manifest = directory / first["output"]
+    assert len(list((manifest.parent / "textures").glob("*.zenpart"))) == 520
+    invoke(executable, "validate", manifest, "--read-workers", 4)
+    second = json.loads(invoke(executable, *args, cwd=directory).stdout)
+    assert second["geometry_reused"] and second["part_bytes_written"] == 0
+    document["images"][0]["name"] = "renamed"
+    source.write_text(json.dumps(document))
+    invoke(executable, *args, cwd=directory)
+    live_images = {part["path"] for part in json.loads(invoke(executable, "inspect", manifest).stdout)["parts"]
+                   if part["path"].startswith("textures/")}
+    assert live_images == {p.relative_to(manifest.parent).as_posix() for p in manifest.parent.glob("textures/*.zenpart")}
+
+
 def main():
     executable = Path(sys.argv[1]).resolve()
     with tempfile.TemporaryDirectory(prefix="zenasset-array-cli-") as temporary:
         directory = Path(temporary)
         directory_cache(executable, directory, Path(sys.argv[2]).resolve())
+        many_image_directory_cache(executable, directory)
         source = directory / "three-images.gltf"
         fixture(source)
         plain = directory / "standalone.zenasset"

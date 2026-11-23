@@ -7,7 +7,6 @@
 
 namespace zenasset::detail
 {
-FileOpenResult OpenStoredPart(const std::filesystem::path& path);
 Status CheckStoredFile(const std::filesystem::path& path, uint64_t size, uint64_t digest, const Cancellation* cancellation);
 FileOpenResult OpenTemporary(const std::filesystem::path& destination, std::filesystem::path& temporary);
 

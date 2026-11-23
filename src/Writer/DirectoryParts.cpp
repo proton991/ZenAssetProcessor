@@ -3,27 +3,6 @@
 
 namespace zenasset::detail
 {
-// Part paths are rooted in the canonical model directory. A staged descriptor
-// must enforce the same containment rule as the published package reader.
-FileOpenResult OpenStoredPart(const std::filesystem::path& path)
-{
-    FileOpenResult              result;
-    std::error_code             error;
-    const std::filesystem::path resolved = std::filesystem::canonical(path, error);
-    if (error == std::errc::no_such_file_or_directory)
-    {
-        result.status = {StatusCode::SourceUnavailable, "Scene part does not exist"};
-    }
-    else if (error || resolved != path)
-    {
-        result.status = {StatusCode::IOError, "Cannot open missing or redirected scene part"};
-    }
-    else
-    {
-        result = OpenFile(resolved);
-    }
-    return result;
-}
 Status CheckStoredFile(const std::filesystem::path& path, uint64_t size, uint64_t digest, const Cancellation* cancellation)
 {
     FileOpenResult opened = OpenStoredPart(path);
@@ -99,6 +78,10 @@ Status DirectoryParts::Begin(const std::filesystem::path& manifest, const SceneW
     m_transfer     = {this, m_progress ? &DirectoryParts::ReportBytes : nullptr};
     std::error_code folderError;
     std::filesystem::create_directories(m_root, folderError);
+    if (!folderError)
+    {
+        m_root = std::filesystem::canonical(m_root, folderError);
+    }
     Status        status = folderError ? Status{StatusCode::IOError, "Cannot create scene directory"}
                                        : m_publication.Acquire(m_root / ".zen-publish.lock", true, true, true, m_cancellation);
     CacheFileLock lease;
@@ -107,7 +90,9 @@ Status DirectoryParts::Begin(const std::filesystem::path& manifest, const SceneW
         status = lease.Acquire(m_root / ".zen-reader.lock", false, true, true, m_cancellation);
     }
     const std::u8string utf8 = manifest.generic_u8string();
-    const PackageResult old  = OpenPackage(std::string(utf8.begin(), utf8.end()), options.limits.package, m_cancellation);
+    const PackageResult old  = status.Succeeded()
+                                 ? OpenPackage(std::string(utf8.begin(), utf8.end()), options.limits.package, m_cancellation)
+                                 : PackageResult{status, nullptr};
     if (old.status.Succeeded() && !old.package->Parts().empty())
     {
         const SceneMetadataResult metadata = ReadSceneMetadata(*old.package, options.limits, m_cancellation);
@@ -138,21 +123,16 @@ Status DirectoryParts::Begin(const std::filesystem::path& manifest, const SceneW
             }
         }
     }
-    const std::filesystem::path root = std::filesystem::canonical(m_root, folderError);
-    if (!folderError)
-    {
-        m_root = root;
-    }
     for (const char* folder : {"geometry", "textures"})
     {
         if (!status.Succeeded())
         {
             break;
         }
-        const std::filesystem::path path = root / folder;
+        const std::filesystem::path path = m_root / folder;
         std::error_code             error;
         std::filesystem::create_directories(path, error);
-        if (folderError || error || std::filesystem::canonical(path, error) != path || error)
+        if (error || std::filesystem::canonical(path, error) != path || error)
         {
             status = {StatusCode::IOError, "Cannot create contained scene part directory"};
         }

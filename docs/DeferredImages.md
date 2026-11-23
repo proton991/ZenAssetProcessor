@@ -12,7 +12,7 @@ Call `ResolveImagePixels` before accessing a deferred image's bytes. The returne
 immutable lease contains the complete original image, including authored mips
 and array layers. Release that lease after uploading or generating a preview.
 There is no resident image cache. Descriptors can outlive the scene and retain
-the package handle rather than reopening a possibly replaced pathname.
+the original manifest. Directory packages pin the model against eviction and open each indexed image part for the duration of its read.
 
 Every lease checks resource integrity, payload validity, and agreement with its
 descriptor. A failed or cancelled read publishes no pixels. Deferred scene reads

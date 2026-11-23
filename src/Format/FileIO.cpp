@@ -154,6 +154,28 @@ FileOpenResult OpenFile(const std::filesystem::path& path, bool exclusiveWrite)
     return result;
 }
 
+// Part paths are rooted in the canonical model directory. A staged descriptor
+// and a reader reopening an image must enforce the same containment rule.
+FileOpenResult OpenStoredPart(const std::filesystem::path& path, StatusCode pathError)
+{
+    FileOpenResult              result;
+    std::error_code             error;
+    const std::filesystem::path resolved = std::filesystem::canonical(path, error);
+    if (error == std::errc::no_such_file_or_directory)
+    {
+        result.status = {StatusCode::SourceUnavailable, "Scene part does not exist"};
+    }
+    else if (error || resolved != path)
+    {
+        result.status = {pathError, "Cannot open missing or redirected scene part"};
+    }
+    else
+    {
+        result = OpenFile(resolved);
+    }
+    return result;
+}
+
 bool FileLength(FILE* file, uint64_t& bytes)
 {
     ZENASSET_MEASURE_SCOPE(FileInspect);

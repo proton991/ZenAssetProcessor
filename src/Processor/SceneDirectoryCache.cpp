@@ -288,6 +288,23 @@ bool CollectModel(const std::filesystem::path& model, const CacheEntry& drop, ui
     return safe && !error;
 }
 } // namespace
+bool TryCollectUnusedSceneParts(const std::string& manifest)
+{
+    std::filesystem::path path;
+    std::error_code       error;
+    bool                  collected = false;
+    if (detail::MakePath(manifest, path).Succeeded())
+    {
+        const std::filesystem::path model = std::filesystem::canonical(path.parent_path(), error);
+        if (!error && std::filesystem::is_regular_file(model / "source.json", error))
+        {
+            uint64_t removed = 0;
+            collected        = CollectModel(model, {}, removed);
+        }
+    }
+    return collected;
+}
+
 Status TrimSceneDirectoryCache(const std::string& cacheRoot, uint64_t byteBudget, const std::string& keep)
 {
     std::error_code                       error;

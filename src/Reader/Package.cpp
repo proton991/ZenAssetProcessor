@@ -86,6 +86,18 @@ struct ResourceFile
     uint64_t           length{0};
     uint64_t           lastEnd{0};
     mutable std::mutex mutex;
+    Status             OpenPart(const std::filesystem::path& path)
+    {
+        const detail::FileOpenResult opened = detail::OpenStoredPart(path, StatusCode::InvalidData);
+        file                                = opened.file;
+        Status status                       = opened.status;
+        if (status.Succeeded() && !detail::FileLength(file, length))
+        {
+            status = {StatusCode::IOError, "Cannot size scene part"};
+        }
+        nextOffset = 0;
+        return status;
+    }
     // With the cursor lock held, consume alignment padding from stdio's read
     // buffer. Seeking for every small adjacent record would discard read-ahead.
     Status BeginRead(uint64_t offset, const Cancellation* cancellation)
@@ -117,7 +129,8 @@ struct Package::State
 {
     detail::CacheFileLock                      lease;
     ResourceFile                               manifest;
-    std::vector<std::unique_ptr<ResourceFile>> files;
+    ResourceFile                               geometryFile;
+    std::filesystem::path                      root;
     std::vector<PackagePart>                   parts;
     std::vector<size_t>                        locations;
     std::vector<ResourceRecord>                resources;
@@ -128,20 +141,43 @@ struct Package::State
     uint64_t                                   decodedBytes{0};
     uint64_t                                   directoryBytes{0};
     PackageIdentity                            identity;
-    ResourceFile&                              File(size_t index)
+    // The reader gate pins content-addressed parts across republication. Only an
+    // active image read needs a stream. Geometry keeps its sequential cursor.
+    ResourceFile& File(size_t index, ResourceFile& image, Status& status)
     {
-        return locations.empty() || locations[index] == SIZE_MAX ? manifest : *files[locations[index]];
+        const size_t  location = locations.empty() ? SIZE_MAX : locations[index];
+        ResourceFile* source   = &manifest;
+        if (location != SIZE_MAX)
+        {
+            if (location == geometry)
+            {
+                source = &geometryFile;
+            }
+            else
+            {
+                source                  = &image;
+                const PackagePart& part = parts[location];
+                status                  = image.OpenPart(root / part.relativePath);
+                if (status.Succeeded() && image.length != part.storedBytes)
+                {
+                    status = {StatusCode::InvalidData, "Image part length changed"};
+                }
+            }
+        }
+        return *source;
     }
-    Status OpenPart(const std::filesystem::path&   root,
-                    detail::PartKind               kind,
-                    uint64_t                       digest,
-                    const ReadLimits&              limits,
-                    std::map<std::string, size_t>& indices,
-                    uint64_t&                      fileBytes,
-                    size_t&                        location)
+    Status IndexPart(detail::PartKind               kind,
+                     uint64_t                       digest,
+                     const ReadLimits&              limits,
+                     std::map<std::string, size_t>& indices,
+                     uint64_t&                      fileBytes,
+                     size_t&                        location)
     {
         Status            status;
         const std::string name     = detail::PartName(kind, digest);
+        // The lookup index holds a second copy of the part name while opening the manifest.
+        const uint64_t partBytes =
+            sizeof(PackagePart) + sizeof(std::pair<const std::string, size_t>) + 2 * name.size() + 3 * sizeof(void*);
         const auto        existing = indices.find(name);
         if (existing != indices.end())
         {
@@ -151,51 +187,39 @@ struct Package::State
         {
             status = {StatusCode::InvalidData, "Multiple geometry parts in one manifest"};
         }
-        else if (sizeof(ResourceFile) + sizeof(PackagePart) + sizeof(size_t) + name.size()
-                 > limits.maxDirectoryBytes - directoryBytes)
+        else if (partBytes > limits.maxDirectoryBytes - directoryBytes)
         {
             status = {StatusCode::ResourceLimit, "Scene part descriptors exceed directory budget"};
         }
         else
         {
-            directoryBytes += sizeof(ResourceFile) + sizeof(PackagePart) + sizeof(size_t) + name.size();
-            std::error_code             error;
-            const std::filesystem::path resolved = std::filesystem::canonical(root / name, error);
-            if (error || resolved != root / name)
+            ResourceFile  image;
+            ResourceFile& part = kind == detail::PartKind::Geometry ? geometryFile : image;
+            status             = part.OpenPart(root / name);
+            if (status.code == StatusCode::SourceUnavailable)
             {
-                status = {StatusCode::InvalidData, "Missing or redirected scene part: " + name};
+                status = {StatusCode::InvalidData, "Missing scene part"};
+            }
+            if (status.Succeeded() && part.length > limits.maxFileBytes - fileBytes)
+            {
+                status = {StatusCode::ResourceLimit, "Scene parts exceed total file limit"};
+            }
+            if (status.Succeeded())
+            {
+                location = parts.size();
+                indices.emplace(name, location);
+                fileBytes      += part.length;
+                directoryBytes += partBytes;
+                if (kind == detail::PartKind::Geometry)
+                {
+                    geometry       = location;
+                    geometryDigest = digest;
+                }
+                parts.push_back({name, part.length});
             }
             else
             {
-                std::unique_ptr<ResourceFile> part   = std::make_unique<ResourceFile>();
-                detail::FileOpenResult        opened = detail::OpenFile(resolved);
-                part->file                           = opened.file;
-                status                               = opened.status;
-                if (status.Succeeded() && !detail::FileLength(opened.file, part->length))
-                {
-                    status = {StatusCode::IOError, "Cannot size scene part"};
-                }
-                if (status.Succeeded() && part->length > limits.maxFileBytes - fileBytes)
-                {
-                    status = {StatusCode::ResourceLimit, "Scene parts exceed total file limit"};
-                }
-                if (status.Succeeded())
-                {
-                    location = parts.size();
-                    indices.emplace(name, location);
-                    fileBytes += part->length;
-                    if (kind == detail::PartKind::Geometry)
-                    {
-                        geometry       = location;
-                        geometryDigest = digest;
-                    }
-                    parts.push_back({name, part->length});
-                    files.push_back(std::move(part));
-                }
-                else
-                {
-                    status.message += ": " + name;
-                }
+                status.message += ": " + name;
             }
         }
         return status;
@@ -286,13 +310,14 @@ ResourceData Package::Read(uint64_t            id,
     }
     else
     {
-        ResourceFile&               source = m_state->File(static_cast<size_t>(record - m_state->resources.data()));
+        ResourceFile  image;
+        ResourceFile& source = m_state->File(static_cast<size_t>(record - m_state->resources.data()), image, result.status);
         std::lock_guard<std::mutex> lock(source.mutex);
         if (IsCancelled(cancellation))
         {
             result.status = {StatusCode::Cancelled, "Package read cancelled"};
         }
-        else
+        else if (result.status.Succeeded())
         {
             result.status = source.BeginRead(record->offset, cancellation);
         }
@@ -335,9 +360,13 @@ ResourceData Package::ReadStored(uint64_t id, uint64_t maxBytes, const Cancellat
     }
     else
     {
-        ResourceFile&               source = m_state->File(static_cast<size_t>(record - m_state->resources.data()));
+        ResourceFile  image;
+        ResourceFile& source = m_state->File(static_cast<size_t>(record - m_state->resources.data()), image, result.status);
         std::lock_guard<std::mutex> lock(source.mutex);
-        result.status = source.BeginRead(record->offset, cancellation);
+        if (result.status.Succeeded())
+        {
+            result.status = source.BeginRead(record->offset, cancellation);
+        }
         if (result.status.Succeeded())
         {
             result.bytes.resize(static_cast<size_t>(record->storedBytes));
@@ -356,7 +385,7 @@ Status Package::ValidateGeometryPart(const Cancellation* cancellation) const
     Status status;
     if (m_state->geometry != SIZE_MAX)
     {
-        ResourceFile&               source = *m_state->files[m_state->geometry];
+        ResourceFile&               source = m_state->geometryFile;
         std::lock_guard<std::mutex> lock(source.mutex);
         status = source.BeginRead(0, cancellation);
         if (status.Succeeded())
@@ -377,9 +406,13 @@ Status Package::ValidatePayloads(const Cancellation* cancellation) const
     for (size_t index = 0; status.Succeeded() && index < m_state->resources.size(); ++index)
     {
         const ResourceRecord& record = m_state->resources[index];
-        ResourceFile&               source = m_state->File(index);
+        ResourceFile                image;
+        ResourceFile&               source = m_state->File(index, image, status);
         std::lock_guard<std::mutex> lock(source.mutex);
-        status = source.BeginRead(record.offset, cancellation);
+        if (status.Succeeded())
+        {
+            status = source.BeginRead(record.offset, cancellation);
+        }
         if (status.Succeeded())
         {
             status = detail::VerifyFileBytes(source.file, record.storedBytes, record.checksum, cancellation);
@@ -487,12 +520,11 @@ PackageResult OpenPackage(const std::string& path, const ReadLimits& limits, con
         state->manifest.lastEnd   = detail::HeaderBytes + resourceCount * entryBytes;
         state->directoryBytes     = resourceCount * recordCost;
         std::map<std::string, size_t> partIndices;
-        std::filesystem::path         root;
         if (directory)
         {
             state->locations.reserve(static_cast<size_t>(resourceCount));
             std::error_code error;
-            root = std::filesystem::canonical(filePath.has_parent_path() ? filePath.parent_path() : ".", error);
+            state->root = std::filesystem::canonical(filePath.has_parent_path() ? filePath.parent_path() : ".", error);
             if (error)
             {
                 result.status = {StatusCode::IOError, "Cannot resolve manifest directory"};
@@ -512,7 +544,6 @@ PackageResult OpenPackage(const std::string& path, const ReadLimits& limits, con
                     record.canonicalChecksum   = detail::Read64(entry.data() + 72);
                     record.sourceImageChecksum = detail::Read64(entry.data() + 80);
                 }
-                ResourceFile* backing  = &state->manifest;
                 size_t        location = SIZE_MAX;
                 if (directory)
                 {
@@ -525,20 +556,19 @@ PackageResult OpenPackage(const std::string& path, const ReadLimits& limits, con
                     }
                     else if (kind != detail::PartKind::Manifest)
                     {
-                        result.status = state->OpenPart(root, kind, digest, limits, partIndices, fileBytes, location);
-                        if (result.status.Succeeded())
-                        {
-                            backing = state->files[location].get();
-                        }
+                        result.status = state->IndexPart(kind, digest, limits, partIndices, fileBytes, location);
                     }
                     state->locations.push_back(location);
                 }
+                const bool    image = directory && record.type == ResourceType::Image;
+                ResourceFile& backing =
+                    location != SIZE_MAX && location == state->geometry ? state->geometryFile : state->manifest;
                 if (result.status.Succeeded())
                 {
-                    const bool image = directory && record.type == ResourceType::Image;
+                    const uint64_t length = image ? state->parts[location].storedBytes : backing.length;
                     result.status =
-                        CheckEntry(record, previousId, image ? 0 : backing->lastEnd, backing->length, remainingDecoded, limits);
-                    if (image && record.storedBytes != backing->length)
+                        CheckEntry(record, previousId, image ? 0 : backing.lastEnd, length, remainingDecoded, limits);
+                    if (image && record.storedBytes != length)
                     {
                         result.status = {StatusCode::InvalidData,
                                          "Image part extent mismatch: " + state->parts[location].relativePath};
@@ -553,17 +583,19 @@ PackageResult OpenPackage(const std::string& path, const ReadLimits& limits, con
                     state->resources.push_back(record);
                     state->largestChunk  = std::max({state->largestChunk, record.storedBytes, record.decodedBytes});
                     previousId           = record.id;
-                    backing->lastEnd      = record.offset + record.storedBytes;
+                    if (!image)
+                    {
+                        backing.lastEnd = record.offset + record.storedBytes;
+                    }
                     remainingDecoded    -= record.decodedBytes;
                 }
             }
         }
-        for (size_t index = 0; result.status.Succeeded() && index < state->files.size(); ++index)
+        if (result.status.Succeeded() && state->geometry != SIZE_MAX
+            && state->geometryFile.lastEnd != state->geometryFile.length)
         {
-            if (state->files[index]->lastEnd != state->files[index]->length)
-            {
-                result.status = {StatusCode::InvalidData, "Scene part extent mismatch: " + state->parts[index].relativePath};
-            }
+            result.status = {StatusCode::InvalidData,
+                             "Scene part extent mismatch: " + state->parts[state->geometry].relativePath};
         }
         state->decodedBytes = limits.maxDecodedBytes - remainingDecoded;
         state->manifest.nextOffset = detail::HeaderBytes + resourceCount * entryBytes;

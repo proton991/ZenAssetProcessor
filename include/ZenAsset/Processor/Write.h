@@ -48,6 +48,9 @@ Status SceneDirectoryManifest(const std::string&         cacheRoot,
                               const CompressionSettings& compression,
                               std::string&               manifestPath);
 
+// Reclaim unreferenced parts of this model after releasing import and package leases.
+// A busy model or an unreadable variant defers collection until the next cook.
+bool   TryCollectUnusedSceneParts(const std::string& manifest);
 Status TrimSceneDirectoryCache(const std::string& cacheRoot, uint64_t byteBudget, const std::string& keep);
 Status MigrateSceneDirectory(const std::string&             destination,
                              std::shared_ptr<const Package> source,

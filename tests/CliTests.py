@@ -10,9 +10,9 @@ import tempfile
 import zlib
 
 
-def invoke(executable, *arguments, expected=0):
+def invoke(executable, *arguments, expected=0, cwd=None):
     result = subprocess.run(
-        [str(executable), *map(str, arguments)], capture_output=True, text=True, encoding="utf-8"
+        [str(executable), *map(str, arguments)], cwd=cwd, capture_output=True, text=True, encoding="utf-8"
     )
     if result.returncode != expected:
         raise AssertionError(

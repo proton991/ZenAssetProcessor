@@ -1371,8 +1371,9 @@ void GltfAssetReader::ImportFile(const std::filesystem::path& filePath, bool bin
                         m_fileProgress.control->FinishFileDiscovery();
                     }
 
+                    const std::filesystem::path         directory = filePath.has_parent_path() ? filePath.parent_path() : ".";
                     fastgltf::Expected<fastgltf::Asset> loadedAsset =
-                        m_gltfParser.loadGltf(parserData, filePath.parent_path(), m_loadOptions);
+                        m_gltfParser.loadGltf(parserData, directory, m_loadOptions);
 
                     if (loadedAsset.error() != fastgltf::Error::None)
                     {
