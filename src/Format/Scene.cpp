@@ -6,7 +6,8 @@ namespace zenasset
 {
 Status ResolveImagePixels(const std::shared_ptr<const ImagePixels>& pixels,
                           std::shared_ptr<const ImagePixels>&       resolved,
-                          const Cancellation*                       cancellation)
+                          const Cancellation*                       cancellation,
+                          uint64_t                                  maxBytes)
 {
     Status                             status;
     std::shared_ptr<const ImagePixels> candidate;
@@ -24,7 +25,8 @@ Status ResolveImagePixels(const std::shared_ptr<const ImagePixels>& pixels,
     }
     else
     {
-        status = pixels->payloadSource->Read(candidate, cancellation);
+        status = maxBytes == UINT64_MAX ? pixels->payloadSource->Read(candidate, cancellation)
+                                        : pixels->payloadSource->ReadBounded(candidate, cancellation, maxBytes);
         if (status.Succeeded()
             && (!candidate || candidate->payloadSource || candidate->width != pixels->width
                 || candidate->height != pixels->height || candidate->format != pixels->format

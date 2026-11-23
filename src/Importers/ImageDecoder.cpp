@@ -21,6 +21,12 @@ public:
 
     Status Read(std::shared_ptr<const ImagePixels>& pixels, const Cancellation* cancellation) const override
     {
+        return ReadBounded(pixels, cancellation, m_decodeBudget);
+    }
+    Status ReadBounded(std::shared_ptr<const ImagePixels>& pixels,
+                       const Cancellation*                 cancellation,
+                       uint64_t                            maxBytes) const override
+    {
         Status status;
         pixels.reset();
         if (cancellation != nullptr && cancellation->IsCancelled())
@@ -30,7 +36,7 @@ public:
         if (status.Succeeded())
         {
             std::shared_ptr<ImagePixels> resident = std::make_shared<ImagePixels>();
-            ImageBudget                  budget(m_decodeBudget);
+            ImageBudget                  budget(std::min(m_decodeBudget, maxBytes));
             ImportErrors                 errors;
             errors.Reset(nullptr, &budget);
             resident->format = m_format;

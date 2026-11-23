@@ -7,6 +7,7 @@
 #include <memory>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace zenasset
@@ -52,6 +53,15 @@ struct ResourceRecord
     uint64_t       checksum{0};
     uint32_t       alignment{16};
     uint32_t       encoding{0};
+    // Directory layout receipts. Flat packages leave both zero.
+    uint64_t canonicalChecksum{0};
+    uint64_t sourceImageChecksum{0};
+};
+
+struct PackagePart
+{
+    std::string relativePath;
+    uint64_t    storedBytes{0};
 };
 
 struct ReadLimits
@@ -91,10 +101,18 @@ public:
 
     std::span<const ResourceRecord> Resources() const;
     PackageIdentity                 Identity() const;
+    std::span<const PackagePart>    Parts() const;
+    uint64_t                        DirectoryBytes() const;
     // Compare directory and payload sizes. Codec scratch is bounded during Read.
     bool                  FitsReadLimits(const ReadLimits& limits) const;
     const ResourceRecord* Find(uint64_t id) const;
-    ResourceData Read(uint64_t id, const Cancellation* cancellation = nullptr, uint64_t maxScratchBytes = UINT64_MAX) const;
+    std::string_view      PartPath(uint64_t id) const;
+    ResourceData          Read(uint64_t            id,
+                               const Cancellation* cancellation    = nullptr,
+                               uint64_t            maxScratchBytes = UINT64_MAX,
+                               TransferProgress    progress        = {}) const;
+    ResourceData          ReadStored(uint64_t id, uint64_t maxBytes, const Cancellation* cancellation = nullptr) const;
+    Status                ValidateGeometryPart(const Cancellation* cancellation = nullptr) const;
     Status       ValidatePayloads(const Cancellation* cancellation = nullptr) const;
 
 private:

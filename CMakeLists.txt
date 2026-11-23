@@ -52,7 +52,8 @@ target_include_directories(ZenAssetFormat PUBLIC
 add_library(ZenAssetReader STATIC src/Reader/Package.cpp src/Reader/Transport.cpp)
 add_library(ZenAsset::Reader ALIAS ZenAssetReader)
 set_target_properties(ZenAssetReader PROPERTIES EXPORT_NAME Reader)
-target_link_libraries(ZenAssetReader PUBLIC ZenAssetFormat)
+find_package(Threads REQUIRED)
+target_link_libraries(ZenAssetReader PUBLIC ZenAssetFormat PRIVATE Threads::Threads)
 target_include_directories(ZenAssetReader PRIVATE src)
 
 foreach(target ZenAssetFormat ZenAssetReader)

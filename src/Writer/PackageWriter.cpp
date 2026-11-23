@@ -5,8 +5,6 @@
 
 namespace zenasset::detail
 {
-namespace
-{
 detail::FileOpenResult OpenTemporary(const std::filesystem::path& destination, std::filesystem::path& temporary)
 {
     static std::atomic<uint64_t> serial{0};
@@ -16,7 +14,6 @@ detail::FileOpenResult OpenTemporary(const std::filesystem::path& destination, s
     const detail::FileOpenResult result  = detail::OpenFile(temporary, true);
     return result;
 }
-} // namespace
 
 void ResourceEncoder::Compress(Payload& payload, uint64_t budget, uint64_t encoderBudget) const
 {
@@ -44,27 +41,47 @@ void ResourceEncoder::Append(Payload& payload)
 {
     m_status                = std::move(payload.status);
     ResourceRecord& record  = payload.record;
-    const uint64_t  padding = (16 - m_position % 16) % 16;
+    const PartKind  kind     = m_parts != nullptr ? ResourcePart(record.type) : PartKind::Manifest;
+    const uint64_t  position = kind == PartKind::Image ? 0 : kind == PartKind::Geometry ? m_geometryEnd : m_position;
+    const uint64_t  padding  = (16 - position % 16) % 16;
+    const uint64_t  additional =
+        kind == PartKind::Image && !m_imageDigests.insert(record.checksum).second ? 0 : record.storedBytes;
     if (m_status.Succeeded()
-        && (padding > m_options.limits.package.maxFileBytes - m_position
-            || record.storedBytes > m_options.limits.package.maxFileBytes - m_position - padding
+        && (padding > m_options.limits.package.maxFileBytes - m_totalStored
+            || additional > m_options.limits.package.maxFileBytes - m_totalStored - padding
             || record.decodedBytes > m_options.limits.package.maxDecodedBytes - m_decodedBytes))
     {
         m_status = {StatusCode::ResourceLimit, "Scene package exceeds its configured byte limits"};
     }
-    if (m_status.Succeeded())
+    if (m_status.Succeeded() && kind == PartKind::Geometry && !payload.partWritten)
+    {
+        m_status = m_parts->Geometry(record, payload.bytes);
+    }
+    if (m_status.Succeeded() && kind == PartKind::Image && !payload.partWritten)
+    {
+        m_status = m_parts->Image(record, payload.bytes);
+    }
+    if (m_status.Succeeded() && kind == PartKind::Manifest)
     {
         const uint8_t zeros[16]{};
         m_status = WriteFileBytes(m_file, zeros, padding, m_cancellation);
     }
-    if (m_status.Succeeded())
+    if (m_status.Succeeded() && kind == PartKind::Manifest)
     {
         record.offset = m_position + padding;
         m_status      = WriteFileBytes(m_file, payload.bytes.data(), payload.bytes.size(), m_cancellation);
     }
     if (m_status.Succeeded())
     {
-        m_position      = record.offset + record.storedBytes;
+        if (kind == PartKind::Manifest)
+        {
+            m_position = record.offset + record.storedBytes;
+        }
+        if (kind == PartKind::Geometry)
+        {
+            m_geometryEnd = record.offset + record.storedBytes;
+        }
+        m_totalStored  += padding + additional;
         m_decodedBytes += record.decodedBytes;
         m_records.push_back(record);
         ZENASSET_MEASURE_ADD(TransportEncodedResources, record.codec != TransportCodec::None ? 1 : 0);
@@ -90,10 +107,11 @@ Status WritePackage(const std::string&       path,
     {
         *options.published = false;
     }
-    const uint64_t prefixBytes = HeaderBytes + count * DirectoryEntryBytes;
+    const uint64_t entryBytes  = options.directoryLayout ? PartDirectoryEntryBytes : DirectoryEntryBytes;
+    const uint64_t prefixBytes = HeaderBytes + count * entryBytes;
     if (count > options.limits.package.maxResources || count > options.limits.package.maxDirectoryBytes / sizeof(ResourceRecord)
         || count > options.limits.maxAllocationBytes / sizeof(ResourceRecord) || count > SIZE_MAX / sizeof(ResourceRecord)
-        || count > (UINT64_MAX - HeaderBytes) / DirectoryEntryBytes || prefixBytes > options.limits.package.maxFileBytes)
+        || count > (UINT64_MAX - HeaderBytes) / entryBytes || prefixBytes > options.limits.package.maxFileBytes)
     {
         status = {StatusCode::ResourceLimit, "Package directory exceeds configured limits"};
     }
@@ -141,10 +159,25 @@ Status WritePackage(const std::string&       path,
         {
             status = {StatusCode::Cancelled, "Scene write cancelled"};
         }
+        if (status.Succeeded() && options.directoryLayout)
+        {
+            const std::u8string name = temporary.generic_u8string();
+            const PackageResult staged =
+                OpenPackage(std::string(name.begin(), name.end()), options.limits.package, cancellation);
+            status = staged.status;
+            if (status.Succeeded() && staged.package->DirectoryBytes() > options.limits.maxAllocationBytes)
+            {
+                status = {StatusCode::ResourceLimit, "Directory manifest exceeds allocation limit"};
+            }
+        }
         if (status.Succeeded() && options.beforePublish != nullptr)
         {
             ZENASSET_MEASURE_SCOPE(BeforePublish);
             status = options.beforePublish(options.publicationUser);
+        }
+        if (status.Succeeded() && options.directoryLayout && !options.metadata.inputs.empty())
+        {
+            status = VerifyDirectoryInputs(options.metadata, cancellation);
         }
         if (status.Succeeded() && cancellation != nullptr && cancellation->IsCancelled())
         {

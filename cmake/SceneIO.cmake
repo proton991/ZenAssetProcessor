@@ -2,7 +2,7 @@ target_sources(ZenAssetReader PRIVATE src/Reader/Scene.cpp src/Reader/MeshDecodi
 target_link_libraries(ZenAssetReader PRIVATE ZenAssetMeshoptDecoder)
 if(TARGET ZenAssetProcessor)
     target_sources(ZenAssetProcessor PRIVATE src/Writer/Scene.cpp src/Writer/Compression.cpp src/Writer/MeshEncoding.cpp
-        src/Writer/Assembly.cpp src/Writer/PackageWriter.cpp)
+        src/Writer/Assembly.cpp src/Writer/PackageWriter.cpp src/Writer/DirectoryParts.cpp src/Processor/SceneDirectoryCache.cpp)
     target_link_libraries(ZenAssetProcessor PUBLIC ZenAssetReader PRIVATE ZenAssetZstdEncoder ZenAssetMeshoptEncoder)
     if(ZENASSET_BUILD_TESTING)
         add_executable(ZenAssetAssemblyTests tests/AssemblyTests.cpp)

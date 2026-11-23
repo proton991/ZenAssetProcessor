@@ -20,8 +20,7 @@ budget retained graph data and individual image decode/codec scratch together.
 Concurrent leases have independent per-read budgets; callers must bound their
 upload/preview concurrency to bound aggregate residency.
 
-Ordinary `ReadScene` and imports retain their resident behavior. `WriteScene`
-resolves one image at a time. Cooking deferred images is rejected when processing
+Ordinary `ReadScene` and imports retain their resident behavior. Flat scene writes resolve images on the calling thread. Directory writes may resolve several independent images within the shared write budget. Cooking deferred images is rejected when processing
 is requested: resolve them explicitly first, or use the ordinary resident reader.
 Deferred reads reduce retained CPU pixels, not GPU texture residency or mesh data.
 

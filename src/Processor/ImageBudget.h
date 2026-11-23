@@ -27,6 +27,12 @@ public:
         return reserved;
     }
 
+    // Release scratch reserved by an optional cached decode once its peak has passed.
+    void Release(uint64_t bytes)
+    {
+        m_used.fetch_sub(bytes, std::memory_order_relaxed);
+    }
+
 private:
     uint64_t              m_limit;
     std::atomic<uint64_t> m_used{0};

@@ -14,7 +14,8 @@ Status ReadZstandardResource(FILE*                 file,
                              std::span<std::byte>  output,
                              uint64_t              maxScratchBytes,
                              uint64_t&             scratchBytes,
-                             const Cancellation*   cancellation)
+                             const Cancellation*   cancellation,
+                             TransferProgress      progress)
 {
     ZENASSET_MEASURE_SCOPE(TransportDecode);
     Status               status;
@@ -31,7 +32,7 @@ Status ReadZstandardResource(FILE*                 file,
     else
     {
         input.resize(inputBytes);
-        status = ReadFileBytes(file, input.data(), input.size(), cancellation);
+        status = ReadFileBytes(file, input.data(), input.size(), cancellation, progress);
     }
     ZSTD_FrameHeader header{};
     size_t           workspaceBytes = 0;
@@ -96,7 +97,7 @@ Status ReadZstandardResource(FILE*                 file,
         if (status.Succeeded() && encoded.pos == encoded.size && remaining > 0)
         {
             const size_t count = static_cast<size_t>(std::min<uint64_t>(remaining, input.size()));
-            status             = ReadFileBytes(file, input.data(), count, cancellation);
+            status             = ReadFileBytes(file, input.data(), count, cancellation, progress);
             if (status.Succeeded())
             {
                 ZENASSET_MEASURE_BEGIN(checksum, Checksum);

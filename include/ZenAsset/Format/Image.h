@@ -98,6 +98,8 @@ struct ImagePixels
     // explicit mip levels remain available; byte arrays are empty. Resolve before
     // consuming pixels. Ordinary import/cook/read calls remain resident by default.
     std::shared_ptr<const ImagePayloadSource> payloadSource;
+    // Import-only receipt for unprocessed glTF pixels. Excluded from image serialization.
+    uint64_t sourceImageChecksum{0};
 };
 
 class ImagePayloadSource
@@ -106,6 +108,13 @@ public:
     virtual ~ImagePayloadSource() = default;
     // Returns a resident immutable image or an error, never another deferred image.
     virtual Status Read(std::shared_ptr<const ImagePixels>& pixels, const Cancellation* cancellation) const = 0;
+    // Directory writers resolve independent leases concurrently. Implementations with
+    // private decode scratch must honor the supplied bound before allocating it.
+    virtual Status ReadBounded(std::shared_ptr<const ImagePixels>& pixels, const Cancellation*, uint64_t) const
+    {
+        pixels.reset();
+        return {StatusCode::ResourceLimit, "Image source does not support a bounded decode"};
+    }
 };
 
 // Resolves at most this image, without retaining a global cache. The caller owns
@@ -113,7 +122,8 @@ public:
 // is checked before publishing a lease. Payload readers also validate integrity.
 Status ResolveImagePixels(const std::shared_ptr<const ImagePixels>& pixels,
                           std::shared_ptr<const ImagePixels>&       resolved,
-                          const Cancellation*                       cancellation = nullptr);
+                          const Cancellation*                       cancellation = nullptr,
+                          uint64_t                                  maxBytes     = UINT64_MAX);
 
 // The authoritative base level, including all array layers, without copying.
 const std::vector<uint8_t>& GetImageBaseBytes(const ImagePixels& pixels);

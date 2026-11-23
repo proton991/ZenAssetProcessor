@@ -4,6 +4,13 @@
 
 namespace zenasset
 {
+struct ScenePartWriteStats
+{
+    uint64_t imagesEncoded{0};
+    uint64_t imagesReused{0};
+    uint64_t partBytesWritten{0};
+    bool     geometryReused{false};
+};
 struct SceneWriteOptions
 {
     BuildMetadata   metadata;
@@ -28,7 +35,27 @@ struct SceneWriteOptions
     // Independent image compression jobs share the byte and encoder budgets.
     // One keeps the writer serial. Output ordering and bytes are identical.
     uint32_t maxImageWorkers{4};
+    bool                 directoryLayout{false};
+    ScenePartWriteStats* partStats{nullptr};
+    // Encoded byte total is unknown until compression finishes. completedBytes
+    // counts bytes actually written to parts, including staging.
+    void (*partProgress)(void*, const SceneTransferState&){nullptr};
 };
+// Resolve the cache variant and claim its model directory for this source.
+Status SceneDirectoryManifest(const std::string&         cacheRoot,
+                              const std::string&         source,
+                              const BuildMetadata&       metadata,
+                              const CompressionSettings& compression,
+                              std::string&               manifestPath);
+
+Status TrimSceneDirectoryCache(const std::string& cacheRoot, uint64_t byteBudget, const std::string& keep);
+Status MigrateSceneDirectory(const std::string&             destination,
+                             std::shared_ptr<const Package> source,
+                             const SceneWriteOptions&       options,
+                             const Cancellation*            cancellation = nullptr);
+Status RecordDirectoryInputs(const Scene& scene, BuildMetadata& metadata);
+Status VerifyDirectoryInputs(const BuildMetadata& metadata, const Cancellation* cancellation);
+
 // Writes an exclusive temporary sibling and replaces the destination only after
 // complete serialization and flush. Prepublication failure/cancellation preserves
 // old output. A durability failure after replacement can report IOError with the

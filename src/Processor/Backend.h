@@ -1,7 +1,7 @@
 #pragma once
 #include "ZenAsset/Processor/Import.h"
 #include "ZenAsset/Format/Validation.h"
-#include "Processor/WorkerPool.h"
+#include "Format/WorkerPool.h"
 #include "Processor/ImageBudget.h"
 #include "Processor/GeometryBudget.h"
 namespace zenasset
@@ -15,6 +15,8 @@ struct BackendContext
     GeometryBudget* geometry{nullptr};
     bool            retainEncodedGltfImages{false};
     uint32_t        maxConcurrentImageDecodes{0};
+    const Package*  previousReference{nullptr};
+    bool            captureInputHashes{false};
 };
 class ISceneImporter
 {

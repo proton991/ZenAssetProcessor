@@ -1,4 +1,6 @@
 """Exercise optional array cooking, strict limits, batch reuse and source-free reads."""
+from concurrent.futures import ThreadPoolExecutor
+import shutil
 import base64
 import json
 from pathlib import Path
@@ -48,10 +50,116 @@ def fixture(path):
     path.write_text(json.dumps(document), encoding="utf-8")
 
 
+def directory_cache(executable, directory, scene_tests):
+    root = directory / "model-cache"
+    source = directory / "model.gltf"
+    alternate = directory / "other" / "MODEL.gltf"
+    alternate.parent.mkdir()
+    fixture(source)
+    fixture(alternate)
+
+    def cook(path, cache=root, *options):
+        result = invoke(executable, "cook", path, "--layout", "directory", "--output", cache, *options)
+        return Path(json.loads(result.stdout)["output"])
+
+    def parts(manifest):
+        return json.loads(invoke(executable, "inspect", manifest).stdout)["parts"]
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        paths = list(pool.map(cook, [source, alternate, source, alternate]))
+    assert paths[0] == paths[2] and paths[1] == paths[3] and paths[0].parent != paths[1].parent
+    for model, path in zip((source, alternate), paths):
+        assert Path(json.loads((path.parent / "source.json").read_text(encoding="utf8"))["source"]) == model.resolve()
+        invoke(executable, "validate", path)
+    zstd = cook(source, root, "--compression", "zstd")
+    assert zstd != paths[0] and zstd.parent == paths[0].parent
+    # Exit after parts and the staged manifest have reached disk, before the commit.
+    committed = zstd.read_bytes()
+    invoke(scene_tests, "--interrupt-directory", zstd, expected=73)
+    assert zstd.read_bytes() == committed
+    invoke(executable, "validate", zstd)
+    assert cook(source, root, "--compression", "zstd") == zstd
+
+    relative = next(part["path"] for part in parts(zstd) if part["path"].startswith("textures/"))
+    damaged = zstd.parent / relative
+    data = damaged.read_bytes()
+    damaged.write_bytes(bytes([data[0] ^ 1]) + data[1:])
+    assert relative in invoke(executable, "validate", zstd, expected=3).stderr
+    cook(source, root, "--compression", "zstd")
+    assert damaged.read_bytes() == data
+    damaged.unlink()
+    assert relative in invoke(executable, "validate", zstd, expected=3).stderr
+    cook(source, root, "--compression", "zstd")
+    invoke(executable, "validate", zstd)
+
+    desktop = ("--profile", "desktop", "--texture-mipmaps", "on", "--atlas", "array", "--texture-compression", "bc7")
+    packed = cook(source, root, *desktop)
+    before = parts(packed)
+    document = json.loads(source.read_text())
+    prefix, encoded = document["buffers"][0]["uri"].split(",")
+    buffer = bytearray(base64.b64decode(encoded))
+    struct.pack_into("<f", buffer, 36, 2.5)
+    document["buffers"][0]["uri"] = prefix + "," + base64.b64encode(buffer).decode()
+    source.write_text(json.dumps(document))
+    assert cook(source, root, *desktop) == packed
+    rebuilt = cook(source, directory / "clean", *desktop)
+    after = parts(packed)
+    assert [p for p in before if p["path"].startswith("textures/")] != [p for p in after if p["path"].startswith("textures/")]
+    assert after == parts(rebuilt) and packed.read_bytes() == rebuilt.read_bytes()
+    # A vertex alpha change can switch a masked material from cooked to authored pixels.
+    # Keep the compressed policy and image files fixed across the change.
+    alpha = directory / "masked.gltf"
+    fixture(alpha)
+    material = json.loads(alpha.read_text())
+    for entry in material["materials"]:
+        entry["alphaMode"] = "MASK"
+    material["buffers"].append({"uri": "", "byteLength": 48})
+    material["bufferViews"].append({"buffer": 1, "byteOffset": 0, "byteLength": 48})
+    material["accessors"].append({"bufferView": 3, "componentType": 5126, "count": 3, "type": "VEC4"})
+    for primitive in material["meshes"][0]["primitives"]:
+        primitive["attributes"]["COLOR_0"] = 3
+    def write_alpha(value):
+        rgba = struct.pack("<12f", *(1., 1., 1., value) * 3)
+        material["buffers"][1]["uri"] = "data:application/octet-stream;base64," + base64.b64encode(rgba).decode()
+        alpha.write_text(json.dumps(material))
+    write_alpha(1.)
+    masked = cook(alpha, root, *desktop)
+    original = parts(masked)
+    write_alpha(.25)
+    assert cook(alpha, root, *desktop) == masked
+    clean_masked = cook(alpha, directory / "clean-masked", *desktop)
+    images = lambda records: {record["path"] for record in records if record["path"].startswith("textures/")}
+    assert images(original) != images(parts(masked))
+    assert masked.read_bytes() == clean_masked.read_bytes() and parts(masked) == parts(clean_masked)
+    material["buffers"].append({"uri": "", "byteLength": 48})
+    material["bufferViews"].append({"buffer": 2, "byteOffset": 0, "byteLength": 48})
+    material["accessors"].append({"bufferView": 4, "componentType": 5126, "count": 3, "type": "VEC4"})
+    for primitive in material["meshes"][0]["primitives"]:
+        primitive["targets"] = [{"COLOR_0": 4}]
+    material["meshes"][0]["weights"] = [1.]
+    def write_morph(delta):
+        values = struct.pack("<12f", *(0., 0., 0., delta) * 3)
+        material["buffers"][2]["uri"] = "data:application/octet-stream;base64," + base64.b64encode(values).decode()
+        write_alpha(1.)
+    write_morph(0.)
+    cook(alpha, root, *desktop)
+    neutral = parts(masked)
+    write_morph(-.25)
+    cook(alpha, root, *desktop)
+    rebuilt_morph = cook(alpha, directory / "clean-morph", *desktop)
+    assert images(neutral) != images(parts(masked))
+    assert masked.read_bytes() == rebuilt_morph.read_bytes() and parts(masked) == parts(rebuilt_morph)
+    moved = directory / "moved"
+    shutil.move(str(packed.parent), moved)
+    source.unlink()
+    invoke(executable, "validate", moved / packed.name, "--read-workers", 4)
+
+
 def main():
     executable = Path(sys.argv[1]).resolve()
     with tempfile.TemporaryDirectory(prefix="zenasset-array-cli-") as temporary:
         directory = Path(temporary)
+        directory_cache(executable, directory, Path(sys.argv[2]).resolve())
         source = directory / "three-images.gltf"
         fixture(source)
         plain = directory / "standalone.zenasset"

@@ -21,7 +21,7 @@ if(ZENASSET_BUILD_CLI)
             add_test(NAME ZenAssetBuildCommandLine COMMAND ${Python3_EXECUTABLE}
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/BuildCliTests.py $<TARGET_FILE:zenassetc>)
             add_test(NAME ZenAssetArrayCommandLine COMMAND ${Python3_EXECUTABLE}
-                ${CMAKE_CURRENT_SOURCE_DIR}/tests/ArrayCliTests.py $<TARGET_FILE:zenassetc>)
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/ArrayCliTests.py $<TARGET_FILE:zenassetc> $<TARGET_FILE:ZenAssetSceneIOTests>)
             add_test(NAME ZenAssetSpatialCommandLine COMMAND ${Python3_EXECUTABLE}
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/SpatialCliTests.py $<TARGET_FILE:zenassetc>)
         endif()

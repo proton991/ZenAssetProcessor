@@ -1,8 +1,12 @@
 #include "Format/FileIO.h"
+#include "Format/AssetKernels.h"
+#include <array>
 #include "Diagnostics/StageMeasurements.h"
 #include "ZenAsset/Format/Utf8.h"
 #include <algorithm>
 #include <cerrno>
+#include <thread>
+#include <chrono>
 #include <limits>
 #include <type_traits>
 #include <cstring>
@@ -16,10 +20,71 @@
 #else
 #    include <fcntl.h>
 #    include <unistd.h>
+#    include <sys/file.h>
 #endif
 
 namespace zenasset::detail
 {
+CacheFileLock::~CacheFileLock()
+{
+    if (m_handle != -1)
+    {
+#if defined(_WIN32)
+        CloseHandle(reinterpret_cast<HANDLE>(m_handle));
+#else
+        close(static_cast<int>(m_handle));
+#endif
+    }
+}
+Status CacheFileLock::Acquire(const std::filesystem::path& path,
+                              bool                         exclusive,
+                              bool                         create,
+                              bool                         wait,
+                              const Cancellation*          cancellation)
+{
+    Status status;
+#if defined(_WIN32)
+    HANDLE handle =
+        CreateFileW(path.c_str(), create ? GENERIC_READ | GENERIC_WRITE : GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                    nullptr, create ? OPEN_ALWAYS : OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    m_handle = reinterpret_cast<intptr_t>(handle);
+    const bool absent =
+        handle == INVALID_HANDLE_VALUE && (GetLastError() == ERROR_FILE_NOT_FOUND || GetLastError() == ERROR_PATH_NOT_FOUND);
+#else
+    m_handle          = open(path.c_str(), create ? O_CREAT | O_RDWR : O_RDONLY, 0666);
+    const bool absent = m_handle == -1 && errno == ENOENT;
+#endif
+    if (m_handle == -1 && (create || !absent))
+    {
+        status = {StatusCode::IOError, "Cannot open scene cache lock"};
+    }
+    bool locked = false;
+    while (status.Succeeded() && m_handle != -1 && !locked)
+    {
+#if defined(_WIN32)
+        OVERLAPPED offset{};
+        locked = LockFileEx(handle, LOCKFILE_FAIL_IMMEDIATELY | (exclusive ? LOCKFILE_EXCLUSIVE_LOCK : 0), 0, 1, 0, &offset)
+              != FALSE;
+        const bool busy = !locked && GetLastError() == ERROR_LOCK_VIOLATION;
+#else
+        locked          = flock(static_cast<int>(m_handle), LOCK_NB | (exclusive ? LOCK_EX : LOCK_SH)) == 0;
+        const bool busy = !locked && (errno == EAGAIN || errno == EWOULDBLOCK);
+#endif
+        if (!locked && cancellation != nullptr && cancellation->IsCancelled())
+        {
+            status = {StatusCode::Cancelled, "Scene cache lock wait cancelled"};
+        }
+        else if (!locked && (!busy || !wait))
+        {
+            status = {StatusCode::IOError, "Scene cache is in use or cannot be locked"};
+        }
+        else if (!locked)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+    }
+    return status;
+}
 Status MakePath(std::string_view utf8, std::filesystem::path& path)
 {
     Status status;
@@ -121,7 +186,8 @@ bool SeekFile(FILE* file, uint64_t position)
 template <bool Reading> Status TransferFileBytes(FILE*                                                file,
                                                  std::conditional_t<Reading, uint8_t, const uint8_t>* data,
                                                  uint64_t                                             count,
-                                                 const Cancellation*                                  cancellation)
+                                                 const Cancellation*                                  cancellation,
+                                                 TransferProgress                                     progress)
 {
     Status status;
     while (status.Succeeded() && count > 0)
@@ -159,22 +225,49 @@ template <bool Reading> Status TransferFileBytes(FILE*                          
             {
                 data  += transfer;
                 count -= transfer;
+                if (progress.bytes != nullptr)
+                {
+                    progress.bytes(progress.user, transfer);
+                }
             }
         }
     }
     return status;
 }
 
-Status ReadFileBytes(FILE* file, void* data, uint64_t count, const Cancellation* cancellation)
+Status ReadFileBytes(FILE* file, void* data, uint64_t count, const Cancellation* cancellation, TransferProgress progress)
 {
     ZENASSET_MEASURE_SCOPE(FileRead);
-    return TransferFileBytes<true>(file, static_cast<uint8_t*>(data), count, cancellation);
+    return TransferFileBytes<true>(file, static_cast<uint8_t*>(data), count, cancellation, progress);
 }
 
-Status WriteFileBytes(FILE* file, const void* data, uint64_t count, const Cancellation* cancellation)
+Status VerifyFileBytes(FILE* file, uint64_t size, uint64_t digest, const Cancellation* cancellation)
+{
+    Status             status;
+    kernels::HashState hash{};
+    kernels::ResetHash(hash, 0);
+    std::array<uint8_t, 65536> buffer{};
+    while (status.Succeeded() && size != 0)
+    {
+        const size_t count = static_cast<size_t>(std::min<uint64_t>(buffer.size(), size));
+        status             = ReadFileBytes(file, buffer.data(), count, cancellation);
+        if (status.Succeeded())
+        {
+            kernels::UpdateHash(hash, buffer.data(), count);
+        }
+        size -= count;
+    }
+    if (status.Succeeded() && kernels::FinishHash(hash) != digest)
+    {
+        status = {StatusCode::InvalidData, "Stored checksum mismatch"};
+    }
+    return status;
+}
+
+Status WriteFileBytes(FILE* file, const void* data, uint64_t count, const Cancellation* cancellation, TransferProgress progress)
 {
     ZENASSET_MEASURE_SCOPE(FileWrite);
-    return TransferFileBytes<false>(file, static_cast<const uint8_t*>(data), count, cancellation);
+    return TransferFileBytes<false>(file, static_cast<const uint8_t*>(data), count, cancellation, progress);
 }
 
 Status FlushFile(FILE* file, bool durable)

@@ -221,6 +221,8 @@ struct Scene
 {
     std::string name;
     std::string sourcePath;
+    // Import-time revision of the root file, bound to the bytes given to the parser.
+    uint64_t sourceContentHash{0};
     // External files actually consumed while importing (embedded images need no path).
     std::vector<SceneDependency> dependencies;
     // Optional source metadata for inspection/round-tripping, never geometry ownership.

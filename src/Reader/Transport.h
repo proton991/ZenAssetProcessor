@@ -10,5 +10,6 @@ Status ReadZstandardResource(FILE*                 file,
                              std::span<std::byte>  output,
                              uint64_t              maxScratchBytes,
                              uint64_t&             scratchBytes,
-                             const Cancellation*   cancellation);
+                             const Cancellation*   cancellation,
+                             TransferProgress      progress = {});
 } // namespace zenasset::detail

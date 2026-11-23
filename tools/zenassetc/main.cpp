@@ -74,6 +74,7 @@ struct Arguments
     std::string         input;
     std::string         output;
     std::string         profile{"reference"};
+    bool                directoryLayout{false};
     SceneImportContext  context;
     SourceSettings      settings;
     SceneReadLimits     limits;
@@ -195,6 +196,24 @@ Status ParseArguments(const std::vector<std::string>& values, Arguments& argumen
             if (cooking && (option == "-o" || option == "--output"))
             {
                 arguments.output = value;
+            }
+            else if (cooking && option == "--layout")
+            {
+                arguments.directoryLayout = value == "directory";
+                if (!arguments.directoryLayout && value != "flat")
+                {
+                    status = {StatusCode::InvalidArgument, "Layout must be flat or directory"};
+                }
+            }
+            else if (option == "--read-workers")
+            {
+                uint64_t count = 0;
+                status         = ParseUnsigned(value, count);
+                if (count == 0 || count > 64)
+                {
+                    status = {StatusCode::InvalidArgument, "Read worker count must be 1 through 64"};
+                }
+                arguments.limits.workerCount = static_cast<uint32_t>(count);
             }
             else if (cooking && option == "--profile")
             {
@@ -454,6 +473,14 @@ Status Inspect(const Arguments& arguments, const Cancellation& cancellation)
                       << ",\"type\":" << static_cast<uint32_t>(record.type) << ",\"version\":" << record.version
                       << ",\"codec\":" << static_cast<uint32_t>(record.codec) << ",\"encoding\":" << record.encoding
                       << ",\"stored_bytes\":" << record.storedBytes << ",\"decoded_bytes\":" << record.decodedBytes << '}';
+        }
+        std::cout << "],\"total_bytes\":" << result.package->Identity().fileBytes << ",\"parts\":[";
+        size_t partIndex = 0;
+        for (const PackagePart& part : result.package->Parts())
+        {
+            std::cout << (partIndex++ == 0 ? "" : ",") << "{\"path\":";
+            JsonString(std::cout, part.relativePath);
+            std::cout << ",\"stored_bytes\":" << part.storedBytes << '}';
         }
         std::cout << "]}\n";
     }
@@ -734,12 +761,53 @@ Status Build(const std::vector<std::string>& values, const Cancellation& cancell
 
 Status Cook(const Arguments& arguments)
 {
+    std::string         output = arguments.output;
+    ScenePartWriteStats stats;
     Status             status;
     SceneImportRequest request;
     request.path               = arguments.input;
     request.settings           = arguments.settings;
     request.control            = std::make_shared<SceneImportControl>(SceneImportCallbacks{nullptr, &Interrupted, nullptr});
-    SceneImportResult imported = ImportScene(request, arguments.context);
+    SceneImportContext context = arguments.context;
+    if (arguments.directoryLayout)
+    {
+        const SceneFormatDescriptor* format = FindSceneImportFormat(request.path);
+        if (format != nullptr)
+        {
+            BuildMetadata metadata;
+            metadata.sourceFormat     = format->id;
+            metadata.importerVersion  = format->importerVersion;
+            metadata.profile          = arguments.profile;
+            metadata.settings         = arguments.settings;
+            metadata.processing       = arguments.processing;
+            metadata.buildFingerprint = LibraryBuildFingerprint();
+            status = SceneDirectoryManifest(arguments.output, arguments.input, metadata, arguments.compression, output);
+            context.captureInputHashes = true;
+            if (status.Succeeded() && !HasProcessingOperations(arguments.processing))
+            {
+                const PackageResult previous = OpenPackage(output, arguments.limits.package, request.control.get());
+                if (previous.status.Succeeded() && !previous.package->Parts().empty())
+                {
+                    const SceneMetadataResult old = ReadSceneMetadata(*previous.package);
+                    if (old.status.Succeeded() && old.metadata.buildFingerprint == metadata.buildFingerprint
+                        && !HasProcessingOperations(old.metadata.processing))
+                    {
+                        context.previousReference = previous.package;
+                    }
+                }
+            }
+        }
+    }
+    SceneImportResult imported;
+    if (status.Succeeded())
+    {
+        imported = ImportScene(request, context);
+    }
+    else
+    {
+        imported.status = status.code;
+        imported.error  = status.message;
+    }
     status                     = {imported.status, imported.error};
     PrintDiagnostics(imported.diagnostics);
     SceneCookResult cooked;
@@ -773,12 +841,27 @@ Status Cook(const Arguments& arguments)
         options.compression         = arguments.compression;
         options.maxEncoderBytes     = arguments.maxEncoderBytes;
         options.durable             = true;
-        status                      = WriteScene(arguments.output, *cooked.scene, options, request.control.get());
+        options.directoryLayout     = arguments.directoryLayout;
+        options.partStats           = &stats;
+        if (options.directoryLayout)
+        {
+            status = RecordDirectoryInputs(*cooked.scene, options.metadata);
+        }
+        if (status.Succeeded())
+        {
+            status = WriteScene(output, *cooked.scene, options, request.control.get());
+        }
     }
     if (status.Succeeded())
     {
         std::cout << "{\"output\":";
-        JsonString(std::cout, arguments.output);
+        JsonString(std::cout, output);
+        if (arguments.directoryLayout)
+        {
+            std::cout << ",\"images_encoded\":" << stats.imagesEncoded << ",\"images_reused\":" << stats.imagesReused
+                      << ",\"geometry_reused\":" << (stats.geometryReused ? "true" : "false")
+                      << ",\"part_bytes_written\":" << stats.partBytesWritten;
+        }
         std::cout << ",\"profile\":";
         JsonString(std::cout, arguments.profile);
         std::cout << ',';
@@ -837,7 +920,7 @@ void Help()
     std::cout
         << "zenassetc cook SOURCE --output PACKAGE [--profile reference|desktop] [--workers N] [--scene-index N]\n"
            "               [--image-budget BYTES] [--geometry-budget BYTES] [--allocation-budget BYTES] [--max-file-bytes BYTES]\n"
-           "               [--compression none|zstd] [--zstd-level 1..19] [--encoder-budget BYTES]\n"
+           "               [--layout flat|directory] [--compression none|zstd] [--zstd-level 1..19] [--encoder-budget BYTES]\n"
            "               [--mesh-compression none|meshopt]\n"
            "               [--vertex-fetch off|on] [--position-bits 0..24]\n"
            "               [--position-max-error METERS] [--position-relative-error FRACTION]\n"
@@ -852,7 +935,7 @@ void Help()
            "               [--normal-rms-degrees DEGREES] [--normal-max-degrees DEGREES]\n"
            "               [--alpha-coverage-error FRACTION]\n"
            "zenassetc inspect PACKAGE [--max-file-bytes BYTES]\n"
-           "zenassetc validate PACKAGE [--allocation-budget BYTES] [--max-file-bytes BYTES] [--codec-budget BYTES]\n"
+           "zenassetc validate PACKAGE [--read-workers N] [--allocation-budget BYTES] [--max-file-bytes BYTES] [--codec-budget BYTES]\n"
            "zenassetc --version\n"
            "zenassetc clean DIRECTORY [--dry-run on|off] (default on)\n"
            "zenassetc build MANIFEST [--output-dir DIR] [--jobs 1..64] [--force off|on]\n"

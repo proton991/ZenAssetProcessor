@@ -15,7 +15,7 @@ The 64-byte header contains:
 | 8 | u32 | Container version, currently 3 |
 | 12 | u32 | Byte-order marker `0x01020304` |
 | 16 | u32 | Header byte length, 64 |
-| 20 | u32 | Directory entry byte length, 64 |
+| 20 | u32 | Directory entry byte length, 64 for flat and 88 for directory-backed scenes |
 | 24 | u64 | Directory offset, 64 |
 | 32 | u64 | Resource count |
 | 40 | u64 | Complete file byte length |
@@ -24,7 +24,7 @@ The 64-byte header contains:
 
 ## Directory
 
-Each 64-byte record contains:
+The first 64 bytes of every record have the following layout.
 
 | Offset | Type | Field |
 | --- | --- | --- |
@@ -40,7 +40,7 @@ Each 64-byte record contains:
 | 56 | u32 | Power-of-two alignment, at most 4096 |
 | 60 | u32 | Resource-specific semantic encoding |
 
-Entries are strictly ordered by increasing resource ID and non-overlapping
+Flat entries are strictly ordered by increasing resource ID and non-overlapping
 payload offset. Payloads follow the directory; alignment gaps are permitted.
 The final payload ends at the declared file size. This canonical ordering
 allows bounded single-pass structural validation without a second range index.
@@ -95,7 +95,7 @@ Image v1 and layer-zero views retain Texture v2. Older readers fail explicitly o
 required array image records instead of misinterpreting a concatenated payload.
 Texture resource version 4 appends four `u32` fields after `arrayLayer`:
 `atlasRegion.x`, `atlasRegion.y`, `atlasRegion.width`, `atlasRegion.height`.
-Versions 1–3 default all four to zero, meaning the full image. A nonzero region
+Versions 1â€“3 default all four to zero, meaning the full image. A nonzero region
 selects an interior rectangle within the referenced physical page; authored
 material UV transforms retain their existing meaning. Current spatial records
 require one explicit RGBA8 level, power-of-two page/tile dimensions, aligned
@@ -166,6 +166,20 @@ substitute for semantic scene validation or validate compressed streams that the
 reader does not support. The open file remains owned by the package, and reads
 are serialized over that handle. Directory views require the package to remain
 alive. Callers own budgets for simultaneous results across package instances.
+
+## Directory-backed scenes
+
+Entry size 88 selects directory layout version 1. Readers that implement only 64-byte entries reject this header. The header's file length describes the manifest itself. All three additional fields are little-endian 64-bit values.
+
+| Offset | Field |
+| --- | --- |
+| 64 | Backing part's XXH64 over its complete encoded bytes, including geometry alignment. Inline resources use zero. |
+| 72 | Writer reuse receipt over canonical serialized payload bytes before mesh and transport encoding. Migration from flat packages may leave it zero. |
+| 80 | Source-image checksum for unprocessed glTF pixels when available. Other records use zero. |
+
+Resource type determines the backing file. Mesh, skin, morph, vertex, index, custom-attribute and texture-coordinate records share one `geometry/mesh-<16 lowercase hex digits>.zenpart`. An image record fills its entire `textures/image-<16 lowercase hex digits>.zenpart` at offset zero. Several image records can reference one identical part. All remaining records live in the manifest. Offsets are local to the selected file. The table remains ordered by resource ID, with nonoverlapping, aligned ranges within the geometry part and within the manifest.
+
+Opening a directory manifest resolves the names below its parent, retains the constituent file handles, checks ranges and charges unique file lengths, record count, decoded bytes and directory storage against scene-wide limits. Reads lock the cursor per file. Scene loading verifies the complete geometry digest and each consumed record's checksum before returning the graph. A deferred image retains its original package generation. The cache ownership receipt and lock files are local bookkeeping. An offline reader requires only the manifest and its referenced parts.
 
 ## Image resource version 3
 

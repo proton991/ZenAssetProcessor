@@ -23,6 +23,7 @@ struct ObjImportState
     SceneImportResult&                 report;
     Scene&                             scene;
     ImportErrors                       errors;
+    bool                               captureHashes{false};
     uint64_t                           remainingSourceBytes{0};
     uint64_t                           remainingGeometryBytes{0};
     std::vector<std::filesystem::path> materialDirectories;

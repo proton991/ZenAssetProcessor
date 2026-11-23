@@ -24,7 +24,9 @@
 #include "Importers/AssetPaths.h"
 #include "Importers/GltfElementTraits.h"
 #include "Format/MathOps.h"
-#include "Processor/WorkerPool.h"
+#include "Format/WorkerPool.h"
+#include "Format/PackageLayout.h"
+#include "Format/SceneResources.h"
 
 namespace zenasset
 {
@@ -623,6 +625,8 @@ GltfAssetReader::GltfAssetReader(const BackendContext& context) :
     m_workers(context.processing),
     m_imageBudget(context.images),
     m_geometryBudget(context.geometry),
+    m_previousReference(context.previousReference),
+    m_captureInputHashes(context.captureInputHashes),
     m_retainEncodedImages(context.retainEncodedGltfImages),
     m_maxConcurrentImageDecodes(context.maxConcurrentImageDecodes)
 {
@@ -658,7 +662,7 @@ GltfAssetReader::GltfAssetReader(const BackendContext& context) :
     m_gltfParser  = fastgltf::Parser(supportedExtensions);
 
     m_loadOptions = fastgltf::Options::LoadExternalBuffers | fastgltf::Options::GenerateMeshIndices;
-    if (!m_retainEncodedImages)
+    if (!m_retainEncodedImages || m_captureInputHashes)
     {
         m_loadOptions |= fastgltf::Options::LoadExternalImages;
     }
@@ -1163,7 +1167,8 @@ static void RecordGltfDependencies(const simdjson::dom::element& document,
                                    const std::filesystem::path&  filePath,
                                    Scene&                        asset,
                                    ImportErrors&                 errors,
-                                   GltfFileProgress&             progress)
+                                   GltfFileProgress&             progress,
+                                   bool                          captureHashes)
 {
     for (const char* collection : {"buffers", "images"})
     {
@@ -1195,8 +1200,8 @@ static void RecordGltfDependencies(const simdjson::dom::element& document,
                             progress.imageFiles[index] = resolved;
                             progress.imageFileSizes.resize(index + 1);
                         }
-                        const SceneDependency* recorded = nullptr;
-                        for (const SceneDependency& dependency : asset.dependencies)
+                        SceneDependency* recorded = nullptr;
+                        for (SceneDependency& dependency : asset.dependencies)
                         {
                             recorded = dependency.path == resolved ? &dependency : recorded;
                         }
@@ -1237,9 +1242,19 @@ static void RecordGltfDependencies(const simdjson::dom::element& document,
                                 errors.Fail("The glTF dependency " + std::string(text) + " changed while it was read",
                                             SceneImportStatus::SourceUnavailable);
                             }
-                            else if (collection[0] == 'b'
-                                     && std::find(progress.imageFiles.begin(), progress.imageFiles.end(), resolved)
-                                            == progress.imageFiles.end())
+                            if (!errors.Failed() && captureHashes && recorded != nullptr && bytes != nullptr)
+                            {
+                                const uint64_t revision = detail::HashBytes(bytes->bytes.data(), bytes->bytes.size());
+                                if (recorded->contentHash != 0 && recorded->contentHash != revision)
+                                {
+                                    errors.Fail("Conflicting revisions of glTF dependency " + resolved,
+                                                SceneImportStatus::SourceUnavailable);
+                                }
+                                recorded->contentHash = revision;
+                            }
+                            if (!errors.Failed() && collection[0] == 'b'
+                                && std::find(progress.imageFiles.begin(), progress.imageFiles.end(), resolved)
+                                       == progress.imageFiles.end())
                             {
                                 progress.CompleteFile(resolved);
                             }
@@ -1265,6 +1280,10 @@ void GltfAssetReader::ImportFile(const std::filesystem::path& filePath, bool bin
     {
         const fastgltf::span<std::byte> fileBytes = static_cast<fastgltf::span<std::byte>>(gltfFile.get());
 
+        if (m_captureInputHashes)
+        {
+            pScene->sourceContentHash = detail::HashBytes(fileBytes.data(), fileBytes.size());
+        }
         size_t jsonOffset                         = 0;
 
         size_t jsonLength                         = fileBytes.size();
@@ -1313,7 +1332,8 @@ void GltfAssetReader::ImportFile(const std::filesystem::path& filePath, bool bin
                 {
                     fastgltf::GltfDataBuffer parserData = std::move(input.get());
 
-                    RecordGltfDependencies(document, nullptr, filePath, *pScene, m_errors, m_fileProgress);
+                    RecordGltfDependencies(document, nullptr, filePath, *pScene, m_errors, m_fileProgress,
+                                           m_captureInputHashes);
                     if (!m_errors.Failed() && m_fileProgress.control != nullptr)
                     {
                         m_fileProgress.control->FinishFileDiscovery();
@@ -1331,7 +1351,8 @@ void GltfAssetReader::ImportFile(const std::filesystem::path& filePath, bool bin
                     {
                         m_gltfAsset = std::move(loadedAsset.get());
 
-                        RecordGltfDependencies(document, &m_gltfAsset, filePath, *pScene, m_errors, m_fileProgress);
+                        RecordGltfDependencies(document, &m_gltfAsset, filePath, *pScene, m_errors, m_fileProgress,
+                                               m_captureInputHashes);
 
                         // The asset may view parserData, so the import finishes in this scope.
                         ZENASSET_MEASURE_END(sourceParsing);
@@ -1872,9 +1893,42 @@ static fastgltf::span<const std::byte> GetImageBytes(const fastgltf::Asset&  ass
     return bytes;
 }
 
+static std::shared_ptr<const ImagePixels> ReadCachedGltfImage(const Package&        package,
+                                                              const ResourceRecord& record,
+                                                              uint32_t              index,
+                                                              ImageBudget*          budget,
+                                                              const Cancellation*   cancellation)
+{
+    std::shared_ptr<const ImagePixels> pixels;
+    SceneReadLimits                    limits;
+    if (record.decodedBytes <= limits.package.maxChunkBytes)
+    {
+        // The archive coexists with either decoder scratch or the resident image.
+        // Leave room for the allocation metadata of small mip chains and strings.
+        const uint64_t scratch = record.codec == TransportCodec::None ? 0 : limits.package.maxCodecBytes;
+        const uint64_t peak    = record.decodedBytes + std::max(record.decodedBytes + 4096, scratch);
+        if (budget == nullptr || budget->Reserve(peak))
+        {
+            limits.maxAllocationBytes   = peak + sizeof(ImageAsset) + package.DirectoryBytes();
+            SceneImageReadResult cached = ReadSceneImage(package, index, limits, cancellation);
+            if (cached.status.Succeeded())
+            {
+                pixels = std::move(cached.image.pixels);
+            }
+            if (budget)
+            {
+                budget->Release(peak - (pixels ? record.decodedBytes : 0));
+            }
+        }
+    }
+    return pixels;
+}
+
 // Runs on texture workers. A failure records an error and returns null. A held
 // decode slot is returned after this decode's temporary buffers are freed.
-std::shared_ptr<const ImagePixels> GltfAssetReader::DecodeGltfImage(uint32_t imageIndex, std::counting_semaphore<>* decodeSlots)
+std::shared_ptr<const ImagePixels> GltfAssetReader::DecodeGltfImage(uint32_t                   imageIndex,
+                                                                    uint32_t                   outputIndex,
+                                                                    std::counting_semaphore<>* decodeSlots)
 {
     std::shared_ptr<const ImagePixels> result;
     if (!m_errors.Failed())
@@ -1885,22 +1939,47 @@ std::shared_ptr<const ImagePixels> GltfAssetReader::DecodeGltfImage(uint32_t ima
         std::shared_ptr<ImagePixels> image(new ImagePixels());
         ImportErrors                 decoding;
         decoding.Reset(nullptr, m_errors.GetImageBudget());
-        image->bytes       = DecodeImagePixels(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size(), image->width,
-                                               image->height, decoding, &image->mips);
-        const bool decoded = !image->bytes.empty() && image->width != 0 && image->height != 0;
-        if (decoded && !decoding.Failed() && m_retainEncodedImages)
+        const uint64_t        digest = m_captureInputHashes ? detail::HashBytes(bytes.data(), bytes.size()) : 0;
+        const ResourceRecord* prior =
+            m_previousReference ? m_previousReference->Find(detail::ResourceId(ResourceType::Image, outputIndex)) : nullptr;
+        if (prior != nullptr && digest != 0 && prior->sourceImageChecksum == digest)
         {
-            RetainEncodedImage(*image, reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size(), decoding);
+            result = ReadCachedGltfImage(*m_previousReference, *prior, outputIndex, decoding.GetImageBudget(),
+                                         m_fileProgress.control);
+            if (result && m_retainEncodedImages)
+            {
+                std::shared_ptr<ImagePixels> retained = std::const_pointer_cast<ImagePixels>(result);
+                RetainEncodedImage(*retained, reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size(), decoding);
+            }
         }
-        if (m_errors.Failed() || decoding.Failed() || !decoded)
+        if (decoding.Failed())
         {
-            m_errors.Fail("Failed to decode glTF image " + std::to_string(imageIndex)
-                              + (decoding.Failed() ? ": " + decoding.Message() : std::string()),
-                          decoding.Failed() ? decoding.Status() : SceneImportStatus::InvalidData);
+            m_errors.Fail(decoding.Message(), decoding.Status());
+            result.reset();
         }
-        else
+        else if (!result)
         {
-            result = std::move(image);
+            image->sourceImageChecksum = digest;
+            image->bytes       = DecodeImagePixels(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size(), image->width,
+                                                   image->height, decoding, &image->mips);
+            const bool decoded = !image->bytes.empty() && image->width != 0 && image->height != 0;
+            if (decoded && !decoding.Failed() && m_retainEncodedImages)
+            {
+                RetainEncodedImage(*image, reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size(), decoding);
+            }
+            if (m_errors.Failed() || decoding.Failed() || !decoded)
+            {
+                m_errors.Fail("Failed to decode glTF image " + std::to_string(imageIndex)
+                                  + (decoding.Failed() ? ": " + decoding.Message() : std::string()),
+                              decoding.Failed() ? decoding.Status() : SceneImportStatus::InvalidData);
+            }
+            else
+            {
+                result = std::move(image);
+            }
+        }
+        if (result)
+        {
             m_fileProgress.CompleteImage(imageIndex);
         }
     }
@@ -2092,7 +2171,8 @@ void GltfAssetReader::LoadGltfTextures(Scene* pScene, const simdjson::dom::eleme
                 {
                     decodeSlots->acquire();
                 }
-                futures.emplace_back(m_workers->Push(&GltfAssetReader::DecodeGltfImage, this, imageIndex, decodeSlots));
+                futures.emplace_back(m_workers->Push(&GltfAssetReader::DecodeGltfImage, this, imageIndex,
+                                                     imageIndices[imageIndex], decodeSlots));
             }
             TextureAsset texture;
             texture.name    = m_name + "Texture_" + std::to_string(index);

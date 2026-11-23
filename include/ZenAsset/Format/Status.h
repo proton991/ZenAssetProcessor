@@ -32,6 +32,12 @@ struct Status
     }
 };
 
+struct TransferProgress
+{
+    void* user{nullptr};
+    void  (*bytes)(void*, uint64_t){nullptr};
+};
+
 class Cancellation
 {
 public:

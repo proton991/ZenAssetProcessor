@@ -1,6 +1,7 @@
 @PACKAGE_INIT@
+include(CMakeFindDependencyMacro)
+find_dependency(Threads)
 if("@ZENASSET_BUILD_PROCESSOR@" AND "@ZENASSET_INSTALL_PROCESSOR@")
-    include(CMakeFindDependencyMacro)
     find_dependency(ZenFoundation @ZENASSET_FOUNDATION_ABI@ CONFIG)
 endif()
 @ZENASSET_PROCESSOR_CONFIG_DEPENDENCIES@

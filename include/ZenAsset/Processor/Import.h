@@ -93,6 +93,7 @@ struct SceneImportRequest
     SceneImportSettings                 settings;
     std::shared_ptr<SceneImportControl> control;
 };
+class Package;
 struct SceneImportContext
 {
     // Zero selects the available CPU count. Workers are private to one import.
@@ -123,6 +124,10 @@ struct SceneImportContext
     // worker. FBX and OBJ images are decoded one at a time. Kept last so
     // positional initializers of the fields above stay valid.
     uint32_t maxConcurrentImageDecodes{0};
+    // A validated reference variant from the same producer. Import compares the
+    // digest of the exact encoded source bytes before using an image record.
+    std::shared_ptr<const Package> previousReference;
+    bool                           captureInputHashes{false};
 };
 struct SceneImportReport
 {

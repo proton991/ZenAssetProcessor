@@ -1,3 +1,5 @@
+#include "Format/PackageLayout.h"
+#include "Format/FileIO.h"
 #include "ZenFoundation/Templates/HeapVector.h"
 #include "Importers/AssetHash.h"
 #include "Diagnostics/StageMeasurements.h"
@@ -9,7 +11,7 @@
 #include "Processing/SceneAssetProcessing.h"
 #include "Processing/SurfaceGeometry.h"
 #include "Format/MathOps.h"
-#include "Processor/WorkerPool.h"
+#include "Format/WorkerPool.h"
 #include <ufbx.h>
 #include <algorithm>
 #include <cmath>
@@ -57,7 +59,11 @@ public:
               const BackendContext&     context,
               const ufbx_scene&         source,
               SceneImportResult&        report) :
-        m_request(request), m_pool(context.processing), m_source(source), m_report(report)
+        m_request(request),
+        m_captureHashes(context.captureInputHashes),
+        m_pool(context.processing),
+        m_source(source),
+        m_report(report)
     {
         m_errors.Reset(request.control.get(), context.images, context.geometry);
     }
@@ -87,6 +93,7 @@ private:
     void                   CheckFeatures();
 
     const SceneImportRequest&                         m_request;
+    bool                                              m_captureHashes;
     WorkerPool*                                       m_pool;
     const ufbx_scene&                                 m_source;
     SceneImportResult&                                m_report;
@@ -435,7 +442,8 @@ void FbxReader::DecodeImage(uint32_t index)
                 if (!found && StampAssetFile(candidate, stamp) && ReadTextureFile(candidate, bytes))
                 {
                     found                      = true;
-                    m_imageDependencies[index] = {candidate, true, static_cast<uint64_t>(bytes.size()), stamp.modified, 0};
+                    m_imageDependencies[index] = {candidate, true, static_cast<uint64_t>(bytes.size()), stamp.modified,
+                                                  m_captureHashes ? detail::HashBytes(bytes.data(), bytes.size()) : 0};
                     if (m_request.control)
                     {
                         m_request.control->RegisterFile(candidate);
@@ -1346,7 +1354,10 @@ std::unique_ptr<Scene> FbxReader::Read()
     return std::move(m_asset);
 }
 
-ufbx_scene* LoadFbxScene(const SceneImportRequest& request, bool retainDom, ufbx_error& error)
+ufbx_scene* LoadFbxScene(const SceneImportRequest&       request,
+                         bool                            retainDom,
+                         ufbx_error&                     error,
+                         const zen::HeapVector<uint8_t>* bytes)
 {
     ZENASSET_MEASURE_SCOPE(SourceAcquireParse);
     ufbx_load_opts options{};
@@ -1365,7 +1376,10 @@ ufbx_scene* LoadFbxScene(const SceneImportRequest& request, bool retainDom, ufbx
     options.result_allocator.memory_limit = size_t(8) << 30;
     options.progress_cb.fn                = Progress;
     options.progress_cb.user              = request.control.get();
-    return ufbx_load_file(request.path.c_str(), &options, &error);
+    options.filename.data                 = request.path.c_str();
+    options.filename.length               = request.path.size();
+    return bytes != nullptr ? ufbx_load_memory(bytes->data(), bytes->size(), &options, &error)
+                            : ufbx_load_file(request.path.c_str(), &options, &error);
 }
 } // namespace
 
@@ -1380,13 +1394,35 @@ SceneImportResult FbxSceneImporter::Import(const SceneImportRequest& request, co
     else
     {
         ufbx_error  error{};
-        ufbx_scene* source = LoadFbxScene(request, false, error);
+        zen::HeapVector<uint8_t> sourceBytes;
+        Status                   readStatus;
+        if (context.captureInputHashes)
+        {
+            detail::FileOpenResult file = detail::OpenFile(std::filesystem::u8path(request.path));
+            readStatus                  = file.status;
+            uint64_t size               = 0;
+            if (file.file != nullptr)
+            {
+                if (!detail::FileLength(file.file, size) || size > context.maxSourceBytes || size > SIZE_MAX)
+                {
+                    readStatus = {StatusCode::ResourceLimit, "FBX source exceeds its byte limit"};
+                }
+                if (readStatus.Succeeded())
+                {
+                    sourceBytes.resize(static_cast<size_t>(size));
+                    readStatus = detail::ReadFileBytes(file.file, sourceBytes.data(), size, request.control.get());
+                }
+                std::fclose(file.file);
+            }
+        }
+        const zen::HeapVector<uint8_t>* input  = context.captureInputHashes ? &sourceBytes : nullptr;
+        ufbx_scene*                     source = readStatus.Succeeded() ? LoadFbxScene(request, false, error, input) : nullptr;
         // Only skin clusters need the raw document (their link mode is not parsed),
         // and retaining it copies every array; reparse just those files with it.
         if (source != nullptr && source->skin_clusters.count > 0)
         {
             ufbx_free_scene(source);
-            source = LoadFbxScene(request, true, error);
+            source = LoadFbxScene(request, true, error, input);
         }
         if (source != nullptr)
         {
@@ -1394,10 +1430,18 @@ SceneImportResult FbxSceneImporter::Import(const SceneImportRequest& request, co
             std::unique_ptr<Scene> asset = reader.Read();
             if (asset && ProcessImportedAsset(*asset, result, request.path, context.geometry))
             {
+                if (input != nullptr)
+                {
+                    asset->sourceContentHash = detail::HashBytes(input->data(), input->size());
+                }
                 result.asset  = std::move(asset);
                 result.status = SceneImportStatus::Success;
             }
             ufbx_free_scene(source);
+        }
+        else if (!readStatus.Succeeded())
+        {
+            SetSceneImportFailure(result, readStatus.code, request.path, readStatus.message);
         }
         else
         {

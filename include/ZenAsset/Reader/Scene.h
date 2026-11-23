@@ -15,13 +15,24 @@ struct SceneReadLimits
     uint64_t maxStringBytes{16ull << 20};
     uint64_t maxSourceDocumentBytes{1ull << 30};
     uint64_t maxRuntimeGeometryBytes{16ull << 30};
+    uint32_t workerCount{4};
 };
 // Synchronous updates for required resources decoded during this scene read.
 // Deferred pixel leases never retain the callback or its user data.
+struct SceneTransferState
+{
+    uint64_t completedBytes{0};
+    uint64_t totalBytes{0};
+    uint64_t completedImages{0};
+    uint64_t totalImages{0};
+    bool     geometryComplete{false};
+};
 struct SceneReadProgress
 {
     void* user{nullptr};
     void  (*resourceDecoded)(void*, uint64_t completed, uint64_t total){nullptr};
+    void  (*transfer)(void*, const SceneTransferState&){nullptr};
+    void  (*validating)(void*){nullptr};
 };
 
 struct SceneReadResult

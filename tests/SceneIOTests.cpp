@@ -9,6 +9,7 @@
 #include "Format/SceneArchive.h"
 #include "SceneValueComparison.h"
 #include <cstdio>
+#include <cstdlib>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -988,6 +989,95 @@ bool TestRuntimeCoordinates(const std::filesystem::path& directory)
     return valid;
 }
 
+Status ChangeInputBeforePublication(void* context)
+{
+    const std::filesystem::path&          path = *static_cast<std::filesystem::path*>(context);
+    std::error_code                       error;
+    const std::filesystem::file_time_type original = std::filesystem::last_write_time(path, error);
+    std::ofstream(path, std::ios::binary) << "new";
+    std::filesystem::last_write_time(path, original, error);
+    return error ? Status{StatusCode::IOError, "Cannot restore test timestamp"} : Status{};
+}
+
+bool TestDirectoryScene(const std::filesystem::path& directory)
+{
+    const std::filesystem::path root  = directory / "directory-cache";
+    const std::filesystem::path model = root / "model";
+    const std::string           path  = (model / "reference-test.zenasset").string();
+    std::filesystem::create_directories(model);
+    std::ofstream(model / "source.json") << "{}";
+    Scene source = MakeScene();
+    source.images.push_back(source.images.front());
+    SceneWriteOptions options;
+    options.directoryLayout = true;
+    options.compression     = {TransportCodec::Zstandard, 3, true};
+    ScenePartWriteStats stats;
+    options.partStats       = &stats;
+    Status          written = WriteScene(path, source, options);
+    bool            valid   = Check(written.Succeeded(), written.message.c_str());
+    SceneReadResult eager   = ReadScene(path);
+    valid &= Check(eager.scene && scene_test::Same(source, *eager.scene), "Directory eager scene must preserve every field");
+    SceneReadResult pinned = ReadSceneDeferredImages(path);
+    PackageResult   opened = OpenPackage(path);
+    valid &= Check(opened.package && opened.package->Parts().size() == 2, "Two images with identical encodings share one part");
+    if (opened.package && pinned.scene)
+    {
+        uint64_t decoded = 0;
+        for (const ResourceRecord& record : opened.package->Resources())
+        {
+            decoded += record.decodedBytes;
+        }
+        ReadLimits small;
+        small.maxDecodedBytes = decoded - 1;
+        valid &= Check(OpenPackage(path, small).status.code == StatusCode::ResourceLimit, "Reject aggregate decoded size");
+        small  = {};
+        small.maxFileBytes = opened.package->Identity().fileBytes - 1;
+        valid   &= Check(OpenPackage(path, small).status.code == StatusCode::ResourceLimit, "Reject aggregate stored size");
+        written  = WriteScene(path, source, options);
+        valid   &= Check(written.Succeeded() && stats.partBytesWritten == 0 && stats.imagesReused == 2 && stats.geometryReused,
+                         "Unchanged recook writes zero geometry or image bytes");
+        Scene changed          = source;
+        changed.images[0].name = "new image";
+        changed.images[1].name = "new image";
+        written                = WriteScene(path, changed, options);
+        valid &=
+            Check(written.Succeeded() && stats.geometryReused && stats.partBytesWritten != 0, "Image edit reuses geometry");
+        const std::string other = (model / "other.zenasset").string();
+        valid &= Check(TrimSceneDirectoryCache(root.string(), 1, other).Succeeded(), "Evict with a pinned generation");
+        std::shared_ptr<const ImagePixels> lease;
+        valid &= Check(ResolveImagePixels(pinned.scene->images[0].pixels, lease).Succeeded()
+                           && scene_test::Same(*lease, *source.images[0].pixels),
+                       "Deferred lease survives replacement and eviction");
+        zenasset::Cancellation stop;
+        stop.Cancel();
+        const Status          cancelled = WriteScene(path, source, options, &stop);
+        const SceneReadResult current   = ReadScene(path);
+        valid &=
+            Check(cancelled.code == StatusCode::Cancelled && current.scene && current.scene->images.front().name == "new image",
+                  "Cancelled writer preserves committed generation");
+        std::filesystem::path input = directory / "source.bin";
+        std::ofstream(input, std::ios::binary) << "old";
+        source.sourcePath        = input.string();
+        source.sourceContentHash = detail::HashBytes("old", 3);
+        source.dependencies.clear();
+        options.beforePublish   = &ChangeInputBeforePublication;
+        options.publicationUser = &input;
+        bool published          = true;
+        options.published       = &published;
+        valid &= Check(RecordDirectoryInputs(source, options.metadata).Succeeded(), "Capture imported input revision");
+        const Status          stale    = WriteScene(path, source, options);
+        const SceneReadResult retained = ReadScene(path);
+        valid &= Check(!stale.Succeeded() && !published && retained.scene && retained.scene->images[0].name == "new image",
+                       "A same-stamp content edit at publication preserves the preceding manifest");
+        pinned.scene.reset();
+        opened.package.reset();
+        valid &= Check(TrimSceneDirectoryCache(root.string(), 1, other).Succeeded() && !std::filesystem::exists(path)
+                           && std::filesystem::is_empty(model / "geometry") && std::filesystem::is_empty(model / "textures"),
+                       "Eviction reclaims unreferenced parts after the last lease releases its generation");
+    }
+    return valid;
+}
+
 bool TestDeferredImages(const std::filesystem::path& directory)
 {
     const std::string path    = (directory / "deferred.zenasset").string();
@@ -1067,7 +1157,7 @@ bool TestDeferredImages(const std::filesystem::path& directory)
 
 } // namespace
 
-int main(int argc, char** argv)
+int RunSceneTests(int argc, char** argv)
 {
     const int64_t               tick      = std::chrono::high_resolution_clock::now().time_since_epoch().count();
     const std::filesystem::path directory = std::filesystem::current_path() / ("scene-io-test-output-" + std::to_string(tick));
@@ -1077,6 +1167,7 @@ int main(int argc, char** argv)
     valid      &= TestRoundTrip(directory);
     valid      &= TestMipOwnershipSchema();
     valid      &= TestDeferredImages(directory);
+    valid       &= TestDirectoryScene(directory);
     valid      &= TestRuntimeCoordinates(directory);
     valid      &= TestBlockModeValidation(directory);
     valid      &= TestTextureInterpretation(directory);
@@ -1095,4 +1186,24 @@ int main(int argc, char** argv)
     }
     std::printf("%u scene IO checks\n", checks);
     return valid ? 0 : 1;
+}
+
+int main(int argc, char** argv)
+{
+    int result = 1;
+    if (argc == 3 && std::string_view(argv[1]) == "--interrupt-directory")
+    {
+        SceneWriteOptions options;
+        options.directoryLayout = true;
+        options.beforePublish   = [](void*) -> Status {
+            std::_Exit(73);
+        };
+        const Status status = WriteScene(argv[2], MakeScene(), options);
+        std::fprintf(stderr, "Interrupted publication did not reach its callback: %s\n", status.message.c_str());
+    }
+    else
+    {
+        result = RunSceneTests(argc, argv);
+    }
+    return result;
 }

@@ -1,3 +1,4 @@
+#include "Format/PackageLayout.h"
 #include "ZenFoundation/Templates/HeapVector.h"
 #include "Importers/ObjSceneImporter.h"
 #include "Diagnostics/StageMeasurements.h"
@@ -41,6 +42,7 @@ ObjImportState::ObjImportState(const SceneImportRequest& source,
     request(source),
     report(result),
     scene(asset),
+    captureHashes(context.captureInputHashes),
     remainingSourceBytes(context.maxSourceBytes),
     remainingGeometryBytes(context.maxObjGeometryBytes)
 {
@@ -114,7 +116,8 @@ bool ObjImportState::ReadFile(const std::filesystem::path& path, std::string& by
              && after.modified == stamp.modified;
         if (valid)
         {
-            scene.dependencies.push_back({absolute, true, stamp.size, stamp.modified, 0});
+            scene.dependencies.push_back({absolute, true, stamp.size, stamp.modified,
+                                          captureHashes ? detail::HashBytes(bytes.data(), bytes.size()) : 0});
             if (request.control)
             {
                 request.control->RegisterFile(absolute);
@@ -715,6 +718,7 @@ SceneImportResult ObjSceneImporter::Import(const SceneImportRequest& request, co
     {
         // The build/cache layer records the root source independently. Canonical
         // dependency records contain only external libraries and textures.
+        scene->sourceContentHash = scene->dependencies.front().contentHash;
         scene->dependencies.clear();
         ObjDocument                      document = Preflight(state, bytes);
         tinyobj::attrib_t                attributes;

@@ -14,7 +14,7 @@
 #include "Processor/Backend.h"
 #include "Importers/ImportErrors.h"
 #include "Format/MathOps.h"
-#include "Processor/WorkerPool.h"
+#include "Format/WorkerPool.h"
 
 namespace simdjson::dom
 {
@@ -68,7 +68,9 @@ private:
     void                               LoadGltfAssetData(Scene* pScene, const simdjson::dom::element& document);
     void                               LoadGltfRenderableNodes(Scene* pScene);
     void                               LoadGltfInstances(uint32_t nodeIndex, Scene& scene);
-    std::shared_ptr<const ImagePixels> DecodeGltfImage(uint32_t imageIndex, std::counting_semaphore<>* decodeSlots);
+    std::shared_ptr<const ImagePixels> DecodeGltfImage(uint32_t                   imageIndex,
+                                                       uint32_t                   outputIndex,
+                                                       std::counting_semaphore<>* decodeSlots);
 
     struct PrimitiveData;
 
@@ -105,6 +107,8 @@ private:
     WorkerPool*                 m_workers{nullptr};
     ImageBudget*                m_imageBudget{nullptr};
     GeometryBudget*             m_geometryBudget{nullptr};
+    const Package*              m_previousReference{nullptr};
+    bool                        m_captureInputHashes{false};
     bool                        m_retainEncodedImages{false};
     uint32_t                    m_maxConcurrentImageDecodes{0};
 };

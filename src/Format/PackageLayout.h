@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <string>
 
 namespace zenasset::detail
 {
@@ -13,6 +14,42 @@ inline constexpr uint32_t               HeaderBytes         = 64;
 inline constexpr uint32_t               DirectoryEntryBytes = 64;
 inline constexpr uint32_t               ByteOrder           = 0x01020304;
 inline constexpr std::array<uint8_t, 8> Magic{'Z', 'E', 'N', 'A', 'S', 'S', 'E', 'T'};
+
+// Directory layout v1 appends a part digest to every resource directory entry.
+inline constexpr uint32_t PartDirectoryEntryBytes = 88;
+enum class PartKind
+{
+    Manifest,
+    Geometry,
+    Image
+};
+inline PartKind ResourcePart(ResourceType type)
+{
+    PartKind kind = PartKind::Manifest;
+    switch (type)
+    {
+        case ResourceType::Mesh:
+        case ResourceType::Skin:
+        case ResourceType::Morph:
+        case ResourceType::VertexStream:
+        case ResourceType::IndexStream:
+        case ResourceType::TextureCoordinates:
+        case ResourceType::CustomAttributes: kind = PartKind::Geometry; break;
+        case ResourceType::Image: kind = PartKind::Image; break;
+        default: break;
+    }
+    return kind;
+}
+inline std::string PartName(PartKind kind, uint64_t digest)
+{
+    std::string hex(16, '0');
+    for (size_t index = hex.size(); index > 0; --index)
+    {
+        hex[index - 1]   = "0123456789abcdef"[digest & 15];
+        digest         >>= 4;
+    }
+    return (kind == PartKind::Geometry ? "geometry/mesh-" : "textures/image-") + hex + ".zenpart";
+}
 
 inline bool SupportedResourceVersion(ResourceType type, uint32_t version)
 {
